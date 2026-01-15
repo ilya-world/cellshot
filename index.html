@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CellShot</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="title-block">
+      <h1>CellShot</h1>
+      <p class="subtitle">Turn-based tactical grid shooter (hot-seat)</p>
+    </div>
+    <div class="setup">
+      <label>
+        Map
+        <select id="mapSelect"></select>
+      </label>
+      <label>
+        Players
+        <select id="playerCount">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+      <label>
+        Seed
+        <input id="seedInput" type="number" placeholder="Optional" />
+      </label>
+      <button id="newGame">New Game</button>
+      <button id="resetGame">Reset</button>
+      <button id="saveGame">Save</button>
+      <button id="loadGame">Load</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="board-section">
+      <div id="grid" class="grid"></div>
+      <div class="roll-panel">
+        <h3>RANDOM / ROLL</h3>
+        <label>
+          From
+          <input id="rollMin" type="number" value="1" />
+        </label>
+        <label>
+          To
+          <input id="rollMax" type="number" value="6" />
+        </label>
+        <button id="rollButton">Roll</button>
+      </div>
+    </section>
+
+    <section class="side-panel">
+      <div class="status-panel">
+        <h2>Turn Panel</h2>
+        <div id="turnInfo" class="turn-info"></div>
+      </div>
+
+      <div class="controls">
+        <h2>Controls</h2>
+        <div class="control-grid">
+          <button data-move="up">U</button>
+          <button data-move="left">L</button>
+          <button data-move="down">D</button>
+          <button data-move="right">R</button>
+        </div>
+        <div class="weapon-controls">
+          <button data-weapon="0">Weapon 1</button>
+          <button data-weapon="1">Weapon 2</button>
+        </div>
+        <div class="weapon-controls">
+          <button data-reload="0">Reload 1</button>
+          <button data-reload="1">Reload 2</button>
+        </div>
+        <div class="weapon-controls">
+          <button data-drop-weapon="0">Drop W1</button>
+          <button data-drop-weapon="1">Drop W2</button>
+        </div>
+        <button id="endTurn">End Turn</button>
+        <button id="useMedkit">Medkit</button>
+      </div>
+
+      <div class="items-panel">
+        <h2>GROUND ITEMS</h2>
+        <div id="groundItems"></div>
+      </div>
+
+      <div class="inventory-panel">
+        <h2>Inventory</h2>
+        <div id="inventory"></div>
+      </div>
+
+      <div class="log-panel">
+        <h2>Log</h2>
+        <div id="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
