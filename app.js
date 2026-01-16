@@ -994,8 +994,12 @@ function takeItem(item, itemIndex, player) {
     logEvent("Inventory is full.");
     return;
   }
+  const hadExoskeleton = player.inventory.some((entry) => entry.category === "Exoskeleton");
   player.inventory.push(stripItem(item));
   state.items.splice(itemIndex, 1);
+  if (item.category === "Exoskeleton" && !hadExoskeleton) {
+    state.moves += 2;
+  }
   logEvent("Item added to inventory.");
 }
 
@@ -1004,6 +1008,14 @@ function dropInventoryItem(index) {
   if (!player.inventory[index]) return;
   const item = player.inventory.splice(index, 1)[0];
   addGroundItem(item, player.x, player.y);
+  if (item.category === "Exoskeleton") {
+    const stillHasExoskeleton = player.inventory.some(
+      (entry) => entry.category === "Exoskeleton"
+    );
+    if (!stillHasExoskeleton) {
+      state.moves = Math.max(0, state.moves - 2);
+    }
+  }
   logEvent("Inventory item dropped.");
   render();
 }
