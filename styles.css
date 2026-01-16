@@ -12,6 +12,10 @@
 body {
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 
 header {
@@ -69,9 +73,11 @@ button:hover {
 
 main {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1.2fr 0.8fr;
   gap: 16px;
   padding: 16px;
+  flex: 1;
+  min-height: 0;
 }
 
 .board-section {
@@ -82,8 +88,8 @@ main {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(20, 28px);
-  grid-template-rows: repeat(20, 28px);
+  grid-template-columns: repeat(20, 24px);
+  grid-template-rows: repeat(20, 24px);
   gap: 2px;
   background: #0b0d12;
   padding: 12px;
@@ -93,8 +99,8 @@ main {
 }
 
 .cell {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   background: #1a1f2a;
   display: flex;
@@ -122,8 +128,8 @@ main {
 }
 
 .player-token {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -152,6 +158,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
 }
 
 .status-panel,
@@ -166,36 +173,336 @@ main {
 }
 
 .turn-info {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   font-size: 13px;
 }
 
-.turn-info span {
-  display: block;
+.turn-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.controls {
+.badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #1b2230;
+  border: 1px solid #2a3242;
+}
+
+.player-badge {
+  background: color-mix(in srgb, var(--player-color) 30%, #111827);
+  border-color: color-mix(in srgb, var(--player-color) 70%, #1f2937);
+}
+
+.badge.status-alive {
+  color: #a7f3d0;
+  border-color: #065f46;
+}
+
+.badge.status-dead {
+  color: #fecaca;
+  border-color: #7f1d1d;
+}
+
+.turn-layout {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.avatar-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  position: relative;
+  width: 90px;
+  height: 130px;
+}
+
+.body-part {
+  position: absolute;
+  border: 2px solid #5b6476;
+  background: #2a3140;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.body-part.is-healthy {
+  background: #2a3140;
+}
+
+.body-part.is-armored {
+  background: #1e3a8a;
+  border-color: #60a5fa;
+}
+
+.body-part.is-damaged {
+  background: transparent;
+  border-style: dashed;
+  border-color: #f87171;
+}
+
+.body-part.head {
+  top: 0;
+  left: 32px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.body-part.torso {
+  top: 30px;
+  left: 28px;
+  width: 34px;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.body-part.arm {
+  top: 32px;
+  width: 18px;
+  height: 44px;
+}
+
+.body-part.arm.left {
+  left: 6px;
+}
+
+.body-part.arm.right {
+  right: 6px;
+}
+
+.body-part.leg {
+  top: 78px;
+  width: 18px;
+  height: 40px;
+}
+
+.body-part.leg.left {
+  left: 28px;
+}
+
+.body-part.leg.right {
+  right: 28px;
+}
+
+.armor-tag {
+  position: absolute;
+  bottom: -10px;
+  right: -4px;
+  background: #0f172a;
+  border: 1px solid #2a3242;
+  border-radius: 8px;
+  padding: 1px 4px;
+  font-size: 9px;
+  color: #cbd5f5;
+}
+
+.armor-tag.broken {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
+.hp-row {
+  display: flex;
+  gap: 6px;
+}
+
+.heart {
+  font-size: 16px;
+}
+
+.heart.full {
+  color: #ef4444;
+}
+
+.heart.empty {
+  color: #374151;
+}
+
+.action-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.control-grid {
+.action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-label {
+  font-size: 12px;
+  color: #9aa4b2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.point-boxes {
+  display: flex;
+  gap: 6px;
+}
+
+.point-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #2a3242;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #374151;
+  background: #0f1420;
+}
+
+.point-box.filled {
+  color: #f8fafc;
+  background: #2563eb;
+  border-color: #60a5fa;
+}
+
+.stat-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid #2a3242;
+  background: #111827;
+}
+
+.weapon-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.weapon-controls {
+.weapon-card {
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #2a3242;
+  background: #0f1420;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weapon-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9aa4b2;
+}
+
+.weapon-name {
+  font-weight: 600;
+}
+
+.weapon-ammo {
+  font-size: 12px;
+  color: #a8b1c3;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-section h3 {
+  margin: 0;
+  font-size: 13px;
+  color: #cbd5f5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.move-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 40px);
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.arrow {
+  font-size: 18px;
+  font-weight: 700;
+  height: 40px;
+  width: 40px;
+}
+
+.center-dot {
+  color: #374151;
+  text-align: center;
+  font-size: 14px;
+}
+
+.weapon-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weapon-block {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #2a3242;
+  background: #0f1420;
+}
+
+.weapon-block-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9aa4b2;
+}
+
+.action-bar {
+  display: flex;
   gap: 8px;
+}
+
+.action-bar .primary {
+  background: #2563eb;
+  border-color: #60a5fa;
+}
+
+.action-bar .primary:hover {
+  border-color: #93c5fd;
 }
 
 .items-panel,
 .inventory-panel {
-  max-height: 260px;
+  max-height: 180px;
   overflow: auto;
 }
 
@@ -220,7 +527,7 @@ main {
 }
 
 .log-panel {
-  max-height: 320px;
+  max-height: 220px;
   overflow: auto;
 }
 

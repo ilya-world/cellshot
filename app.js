@@ -32,9 +32,55 @@ const state = {
   nextItemId: 1,
 };
 
+const MAZE_LAYOUT = `
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|S||||||W||||||W|S|W|W|W
+W|W|W|W|W|W||||W|W|W|W|W||||W|W|W
+W|W|W|||||W||W||||||W|W|W|W|W
+W|W|W|||||W||||||||||W|W|W
+W|W|W|||W||W|W||W|W|||W|||W|W|W
+W|W|W|||W||W||||W|||W|||W|W|W
+W|W|W||W|W||||||||W|W|W||W|W|W
+W|W|W|||W||W||||W||||||W|W|W
+W|W|W|W||W||W|W||W|W|W|W|W|||W|W|W
+W|W|W|||W||||||||W||||W|W|W
+W|W|W||W|W|W|W|W||W|W||W|W||W|W|W|W
+W|W|W|||W|||W||W|||||||W|W|W
+W|W|W|||W|||||W|W|W|W||||W|W|W
+W|W|W|S|||||||||||||S|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+`;
+
+const RIVERSIDE_LAYOUT = `
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|||W||||||S|R|R|R||W||||S|W
+W|||||||||R|R|R|||||W|||W
+W|||W|||||R|R|R|W|||W||W|||W
+W|W|W|W|R|R||R|R|W|W|W|||W||W|W||W
+W|||R|R|R||R||W|||||W|||||W
+W|R|R|R|R||||||||||W||W|W|W|W
+W|R|R|R|S||||||||||W|||||W
+W|||||W|W|||W||W|W|W|W|W|W||W|W
+W|||||||||W|||||||W|||W
+W|||||||||W||W|W||W|||||W
+W|||||||||W|||||W|W|W|W||W
+W|||||||||W||W||||||||W
+W|||||||||W||W||W|W||W|W||W
+W||W|W||W|W|||W||W|||W||W|S||W
+W||W||||W|||W||W||W|W||W|W||W
+W||W|S|||W|||||W||W||||||W
+W||W|W|W|W|W|||W|W|W||W|W|W|W|W||W
+W|||||||||||||||||||W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+`;
+
 const mapLibrary = {
-  Maze: buildMazeMap(),
-  Riverside: buildRiversideMap(),
+  Maze: buildFixedMap("Maze", MAZE_LAYOUT),
+  Riverside: buildFixedMap("Riverside", RIVERSIDE_LAYOUT),
 };
 
 const elements = {
@@ -57,91 +103,15 @@ const elements = {
   useMedkit: document.getElementById("useMedkit"),
 };
 
-function buildMazeMap() {
-  const grid = makeEmptyGrid();
-  addBorderWalls(grid);
-  addRectWall(grid, 5, 2, 5, 18);
-  addRectWall(grid, 15, 2, 15, 18);
-  addRectWall(grid, 2, 5, 18, 5);
-  addRectWall(grid, 2, 15, 18, 15);
-  carveGaps(grid, [
-    { x: 5, y: 8 },
-    { x: 5, y: 12 },
-    { x: 15, y: 7 },
-    { x: 15, y: 13 },
-    { x: 8, y: 5 },
-    { x: 12, y: 5 },
-    { x: 7, y: 15 },
-    { x: 13, y: 15 },
-  ]);
-  placeSpawn(grid, [
-    { x: 4, y: 4 },
-    { x: 17, y: 4 },
-    { x: 4, y: 17 },
-    { x: 17, y: 17 },
-  ]);
-  return { name: "Maze", grid };
-}
-
-function buildRiversideMap() {
-  const grid = makeEmptyGrid();
-  addBorderWalls(grid);
-  for (let y = 2; y <= 19; y += 1) {
-    grid[y - 1][10] = "R";
-    if (y % 3 !== 0) {
-      grid[y - 1][11] = "R";
-    }
-  }
-  addRectWall(grid, 3, 3, 3, 18);
-  addRectWall(grid, 18, 3, 18, 18);
-  carveGaps(grid, [
-    { x: 3, y: 6 },
-    { x: 3, y: 12 },
-    { x: 18, y: 9 },
-    { x: 18, y: 15 },
-  ]);
-  placeSpawn(grid, [
-    { x: 6, y: 4 },
-    { x: 14, y: 4 },
-    { x: 6, y: 17 },
-    { x: 14, y: 17 },
-  ]);
-  return { name: "Riverside", grid };
-}
-
-function makeEmptyGrid() {
-  return Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => ".")
+function buildFixedMap(name, layout) {
+  const rows = layout
+    .trim()
+    .split("\n")
+    .map((line) => line.trim());
+  const grid = rows.map((row) =>
+    row.split("|").map((cell) => (cell === "" ? "." : cell))
   );
-}
-
-function addBorderWalls(grid) {
-  for (let i = 0; i < GRID_SIZE; i += 1) {
-    grid[0][i] = "W";
-    grid[GRID_SIZE - 1][i] = "W";
-    grid[i][0] = "W";
-    grid[i][GRID_SIZE - 1] = "W";
-  }
-}
-
-function addRectWall(grid, x1, y1, x2, y2) {
-  for (let y = y1; y <= y2; y += 1) {
-    for (let x = x1; x <= x2; x += 1) {
-      grid[y - 1][x - 1] = "W";
-    }
-  }
-}
-
-function carveGaps(grid, gaps) {
-  gaps.forEach(({ x, y }) => {
-    grid[y - 1][x - 1] = ".";
-  });
-}
-
-function placeSpawn(grid, spots) {
-  spots.forEach(({ x, y }) => {
-    grid[y - 1][x - 1] = "S";
-  });
+  return { name, grid };
 }
 
 function init() {
@@ -273,15 +243,28 @@ function assignSpawnPoints() {
 }
 
 function startTurn() {
-  const player = getCurrentPlayer();
-  if (player.status === "Dead") {
-    respawnPlayer(player);
+  let safety = 0;
+  while (safety < state.players.length) {
+    const player = getCurrentPlayer();
+    if (player.status === "Dead") {
+      const respawned = respawnPlayer(player);
+      if (respawned) {
+        logEvent(`${player.name} respawned and skips the turn.`);
+      } else {
+        logEvent(`${player.name} cannot respawn and skips the turn.`);
+      }
+      advanceTurn();
+      safety += 1;
+      continue;
+    }
+    updateActionPoints(player);
+    if (player.id === 1 && state.round % 5 === 1) {
+      spawnCrate();
+    }
+    logEvent(`Turn ${state.round} player ${player.name}.`);
+    return;
   }
-  updateActionPoints(player);
-  if (player.id === 1 && state.round % 5 === 1) {
-    spawnCrate();
-  }
-  logEvent(`Turn ${state.round} player ${player.name}.`);
+  logEvent("No active players to take a turn.");
 }
 
 function updateActionPoints(player) {
@@ -507,8 +490,13 @@ function executeAttack(slot, targetX, targetY) {
     return;
   }
   const distance = Math.abs(targetX - attacker.x) + Math.abs(targetY - attacker.y);
-  if (distance > 6) {
+  const range = getWeaponRange(weapon.weaponName);
+  if (distance > range) {
     logEvent("Target is too far.");
+    return;
+  }
+  if (!canTargetCell(attacker, weapon.weaponName, targetX, targetY)) {
+    logEvent("Line of sight blocked by wall.");
     return;
   }
   if (["Pistol", "Shotgun"].includes(weapon.weaponName) && weapon.activeAmmo <= 0) {
@@ -527,6 +515,7 @@ function executeAttack(slot, targetX, targetY) {
   for (let shot = 0; shot < shots; shot += 1) {
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
+      logEvent(`${attacker.name} rolled ${distanceCheck} to hit.`);
       applyHit(attacker, target);
       if (target.status === "Dead") {
         break;
@@ -669,9 +658,10 @@ function respawnPlayer(player) {
   const openSpawns = spawnPoints.filter(
     (spawn) => !getPlayerAt(spawn.x, spawn.y)
   );
-  const spawn = openSpawns.length
-    ? openSpawns[roll(0, openSpawns.length - 1)]
-    : { x: 2, y: 2 };
+  if (openSpawns.length === 0) {
+    return false;
+  }
+  const spawn = openSpawns[roll(0, openSpawns.length - 1)];
 
   player.status = "Alive";
   player.x = spawn.x;
@@ -688,7 +678,7 @@ function respawnPlayer(player) {
     { weaponName: "Knife", activeAmmo: 0, passiveAmmo: 0 },
   ];
   player.inventory = [];
-  logEvent(`${player.name} respawned.`);
+  return true;
 }
 
 function reloadWeapon(slot) {
@@ -759,13 +749,17 @@ function useMedkit() {
 
 function endTurn() {
   state.attackMode = null;
+  advanceTurn();
+  startTurn();
+  render();
+}
+
+function advanceTurn() {
   state.currentPlayerIndex += 1;
   if (state.currentPlayerIndex >= state.players.length) {
     state.currentPlayerIndex = 0;
     state.round += 1;
   }
-  startTurn();
-  render();
 }
 
 function handleGroundItemAction(itemId, action, slot) {
@@ -937,6 +931,52 @@ function isWithinBounds(x, y) {
   return x >= 1 && x <= GRID_SIZE && y >= 1 && y <= GRID_SIZE;
 }
 
+function getWeaponRange(weaponName) {
+  if (weaponName === "Knife" || weaponName === "Sword") {
+    return 1;
+  }
+  return 6;
+}
+
+function canTargetCell(attacker, weaponName, x, y) {
+  if (!isWithinBounds(x, y)) return false;
+  if (getCellType(x, y) === "W") return false;
+  const distance = Math.abs(x - attacker.x) + Math.abs(y - attacker.y);
+  const range = getWeaponRange(weaponName);
+  if (distance > range) return false;
+  if (range === 1) {
+    return distance === 1;
+  }
+  return hasLineOfSight(attacker.x, attacker.y, x, y);
+}
+
+function hasLineOfSight(x1, y1, x2, y2) {
+  let x = x1;
+  let y = y1;
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+  const sx = x1 < x2 ? 1 : -1;
+  const sy = y1 < y2 ? 1 : -1;
+  let err = dx - dy;
+
+  while (!(x === x2 && y === y2)) {
+    const err2 = 2 * err;
+    if (err2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (err2 < dx) {
+      err += dx;
+      y += sy;
+    }
+    if (x === x2 && y === y2) break;
+    if (getCellType(x, y) === "W") {
+      return false;
+    }
+  }
+  return true;
+}
+
 function render() {
   renderGrid();
   renderTurnInfo();
@@ -983,12 +1023,12 @@ function renderGrid() {
 
   if (state.attackMode) {
     const player = getCurrentPlayer();
+    const weaponName = player.weapons[state.attackMode.slot].weaponName;
     const cellsToHighlight = elements.grid.querySelectorAll(".cell");
     cellsToHighlight.forEach((cell) => {
       const x = Number(cell.dataset.x);
       const y = Number(cell.dataset.y);
-      const distance = Math.abs(x - player.x) + Math.abs(y - player.y);
-      if (distance <= 6) {
+      if (canTargetCell(player, weaponName, x, y)) {
         cell.classList.add("targeting");
       }
     });
@@ -998,25 +1038,98 @@ function renderGrid() {
 function renderTurnInfo() {
   const player = getCurrentPlayer();
   const weaponInfo = player.weapons
-    .map((weapon, index) => {
-      if (weapon.weaponName === "None") return `Slot ${index + 1}: Empty`;
-      return `Slot ${index + 1}: ${weapon.weaponName} (${weapon.activeAmmo}/${weapon.passiveAmmo})`;
-    })
-    .join("<br />");
+    .map((weapon, index) => `
+      <div class="weapon-card">
+        <div class="weapon-title">Slot ${index + 1}</div>
+        <div class="weapon-name">${weapon.weaponName}</div>
+        <div class="weapon-ammo">${
+    weapon.weaponName === "None"
+      ? "—"
+      : `${weapon.activeAmmo}/${weapon.passiveAmmo}`
+  }</div>
+      </div>
+    `)
+    .join("");
 
   elements.turnInfo.innerHTML = `
-    <span><strong>Round:</strong> ${state.round}</span>
-    <span><strong>Current player:</strong> ${player.name}</span>
-    <span><strong>Status:</strong> ${player.status}</span>
-    <span><strong>Moves:</strong> ${state.moves}</span>
-    <span><strong>Weapon points:</strong> ${state.weaponPoints}</span>
-    <span><strong>HP:</strong> ${player.health}</span>
-    <span><strong>Head/Body:</strong> ${player.headArmor} / ${player.bodyArmor}</span>
-    <span><strong>Arms:</strong> L ${player.leftArmArmor} / R ${player.rightArmArmor}</span>
-    <span><strong>Legs:</strong> L ${player.leftLegArmor} / R ${player.rightLegArmor}</span>
-    <span><strong>Frags/Deaths:</strong> ${player.frags} / ${player.deaths}</span>
-    <span><strong>Weapons:</strong><br />${weaponInfo}</span>
+    <div class="turn-header">
+      <div class="badge">Round ${state.round}</div>
+      <div class="badge player-badge" style="--player-color: ${player.color}">
+        ${player.name}
+      </div>
+      <div class="badge status-${player.status.toLowerCase()}">${player.status}</div>
+    </div>
+    <div class="turn-layout">
+      <div class="avatar-panel">
+        <div class="avatar">
+          <div class="body-part head ${partStateClass(player.headArmor)}">
+            ${renderArmorBadge(player.headArmor)}
+          </div>
+          <div class="body-part torso ${partStateClass(player.bodyArmor)}">
+            ${renderArmorBadge(player.bodyArmor)}
+          </div>
+          <div class="body-part arm left ${partStateClass(player.leftArmArmor)}">
+            ${renderArmorBadge(player.leftArmArmor)}
+          </div>
+          <div class="body-part arm right ${partStateClass(player.rightArmArmor)}">
+            ${renderArmorBadge(player.rightArmArmor)}
+          </div>
+          <div class="body-part leg left ${partStateClass(player.leftLegArmor)}">
+            ${renderArmorBadge(player.leftLegArmor)}
+          </div>
+          <div class="body-part leg right ${partStateClass(player.rightLegArmor)}">
+            ${renderArmorBadge(player.rightLegArmor)}
+          </div>
+        </div>
+        <div class="hp-row">${renderHearts(player.health)}</div>
+      </div>
+      <div class="action-panel">
+        <div class="action-group">
+          <span class="action-label">Moves</span>
+          <div class="point-boxes">${renderPointBoxes(state.moves, 3)}</div>
+        </div>
+        <div class="action-group">
+          <span class="action-label">Weapon</span>
+          <div class="point-boxes">${renderPointBoxes(state.weaponPoints, 1)}</div>
+        </div>
+        <div class="stat-pills">
+          <div class="stat-pill">Frags ${player.frags}</div>
+          <div class="stat-pill">Deaths ${player.deaths}</div>
+        </div>
+      </div>
+      <div class="weapon-panel">
+        ${weaponInfo}
+      </div>
+    </div>
   `;
+}
+
+function partStateClass(value) {
+  if (value < 0) return "is-damaged";
+  if (value > 0) return "is-armored";
+  return "is-healthy";
+}
+
+function renderArmorBadge(value) {
+  if (value > 0) {
+    return `<span class="armor-tag">+${value}</span>`;
+  }
+  if (value < 0) {
+    return '<span class="armor-tag broken">✕</span>';
+  }
+  return "";
+}
+
+function renderHearts(count) {
+  return Array.from({ length: 3 }, (_, index) => `
+    <span class="heart ${index < count ? "full" : "empty"}">❤</span>
+  `).join("");
+}
+
+function renderPointBoxes(count, max) {
+  return Array.from({ length: max }, (_, index) => `
+    <span class="point-box ${index < count ? "filled" : ""}">${index + 1}</span>
+  `).join("");
 }
 
 function renderGroundItems() {
