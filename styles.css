@@ -88,6 +88,13 @@ main {
   justify-self: start;
 }
 
+.board-header {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(20, 24px);

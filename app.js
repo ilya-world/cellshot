@@ -4,10 +4,12 @@ const INVENTORY_SIZE = 4;
 const WEAPON_CAPACITY = {
   Pistol: 3,
   Shotgun: 2,
+  Bazooka: 1,
 };
 const PASSIVE_LIMIT = {
   Pistol: 9,
   Shotgun: 8,
+  Bazooka: 1,
 };
 const PLAYER_PRESETS = [
   { name: "Red", color: "#e55353" },
@@ -103,6 +105,7 @@ const elements = {
   lastActionMessage: document.getElementById("lastActionMessage"),
   endTurn: document.getElementById("endTurn"),
   useMedkit: document.getElementById("useMedkit"),
+  boardHeader: document.getElementById("boardHeader"),
 };
 
 function buildFixedMap(name, layout) {
@@ -333,6 +336,11 @@ function handleHotkeys(event) {
     enterAttackMode(Number(key) - 1);
     return;
   }
+  if (key === "r") {
+    event.preventDefault();
+    reloadFirstAvailableWeapon();
+    return;
+  }
   if (key === "e" || key === "enter") {
     event.preventDefault();
     endTurn();
@@ -393,7 +401,7 @@ function handleCratePickup(x, y) {
   );
   if (crateIndex === -1) return;
   state.items.splice(crateIndex, 1);
-  const prizeRoll = roll(1, 7);
+  const prizeRoll = roll(1, 8);
   logEvent("Crate opened.");
   createCratePrize(prizeRoll, x, y);
   render();
@@ -494,6 +502,21 @@ function createCratePrize(rollValue, x, y) {
       }, x, y);
       logEvent("Crate contains an Exoskeleton.");
       break;
+    case 8:
+      addGroundItem({
+        displayName: "Bazooka",
+        category: "Weapon",
+        quantity: 1,
+        additional: "Bazooka",
+      }, x, y);
+      addGroundItem({
+        displayName: "Bazooka ammo (1)",
+        category: "Ammo",
+        quantity: 1,
+        additional: "Bazooka",
+      }, x, y);
+      logEvent("Crate contains a Bazooka kit.");
+      break;
     default:
       break;
   }
@@ -569,7 +592,7 @@ function executeAttack(slot, targetX, targetY) {
     logEvent("Line of sight blocked by wall.");
     return;
   }
-  if (["Pistol", "Shotgun"].includes(weapon.weaponName) && weapon.activeAmmo <= 0) {
+  if (["Pistol", "Shotgun", "Bazooka"].includes(weapon.weaponName) && weapon.activeAmmo <= 0) {
     logEvent("Out of ammo.");
     return;
   }
@@ -586,7 +609,7 @@ function executeAttack(slot, targetX, targetY) {
   for (let shot = 0; shot < shots; shot += 1) {
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
-      const hitInfo = applyHit(attacker, target);
+      const hitInfo = applyHit(attacker, target, weapon.weaponName);
       const locationDetails = hitInfo.partRoll
         ? `location roll ${hitInfo.bodyRoll}, part roll ${hitInfo.partRoll} -> ${hitInfo.part}`
         : `location roll ${hitInfo.bodyRoll} -> ${hitInfo.part}`;
@@ -607,7 +630,7 @@ function executeAttack(slot, targetX, targetY) {
   }
 
   state.weaponPoints = Math.max(0, state.weaponPoints - 1);
-  if (["Pistol", "Shotgun"].includes(weapon.weaponName)) {
+  if (["Pistol", "Shotgun", "Bazooka"].includes(weapon.weaponName)) {
     weapon.activeAmmo = Math.max(0, weapon.activeAmmo - 1);
   } else {
     state.moves = 0;
@@ -619,7 +642,7 @@ function executeAttack(slot, targetX, targetY) {
   render();
 }
 
-function applyHit(attacker, target) {
+function applyHit(attacker, target, weaponName) {
   const bodyCheck = roll(1, 6);
   let part = "Body";
   let partCheck = null;
@@ -630,7 +653,11 @@ function applyHit(attacker, target) {
   }
 
   const wasAlive = target.status === "Alive";
-  applyDamage(target, part, attacker);
+  if (weaponName === "Bazooka") {
+    applyBazookaDamage(target, part, attacker);
+  } else {
+    applyDamage(target, part, attacker);
+  }
   const killed = wasAlive && target.status === "Dead";
   return {
     part,
@@ -673,6 +700,35 @@ function applyDamage(target, part, attacker) {
     default:
       break;
   }
+}
+
+function applyBazookaDamage(target, part, attacker) {
+  applyDamageSteps(target, part, attacker, 3);
+  if (target.status === "Dead") return;
+  const adjacentParts = getAdjacentParts(part);
+  adjacentParts.forEach((adjacent) => {
+    if (target.status === "Dead") return;
+    applyDamageSteps(target, adjacent, attacker, 1);
+  });
+}
+
+function applyDamageSteps(target, part, attacker, count) {
+  for (let i = 0; i < count; i += 1) {
+    if (target.status === "Dead") return;
+    applyDamage(target, part, attacker);
+  }
+}
+
+function getAdjacentParts(part) {
+  const adjacencyMap = {
+    Head: ["Body"],
+    Body: ["Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg"],
+    "Left Arm": ["Body"],
+    "Right Arm": ["Body"],
+    "Left Leg": ["Body"],
+    "Right Leg": ["Body"],
+  };
+  return adjacencyMap[part] || [];
 }
 
 function handleDeath(attacker, target, part) {
@@ -810,6 +866,21 @@ function reloadWeapon(slot) {
   state.weaponPoints = Math.max(0, state.weaponPoints - 1);
   logEvent(`Reloaded ${weapon.weaponName} by ${toLoad}.`);
   render();
+}
+
+function reloadFirstAvailableWeapon() {
+  const player = getCurrentPlayer();
+  const slot = player.weapons.findIndex((weapon) => {
+    const maxAmmo = WEAPON_CAPACITY[weapon.weaponName];
+    if (!maxAmmo) return false;
+    if (weapon.activeAmmo >= maxAmmo) return false;
+    return weapon.passiveAmmo > 0;
+  });
+  if (slot === -1) {
+    logEvent("No weapon available to reload.");
+    return;
+  }
+  reloadWeapon(slot);
 }
 
 function dropWeapon(slot) {
@@ -1107,6 +1178,7 @@ function hasLineOfSight(x1, y1, x2, y2) {
 
 function render() {
   renderGrid();
+  renderBoardHeader();
   renderTurnInfo();
   renderPlayerSummary();
   renderControls();
@@ -1232,10 +1304,6 @@ function renderTurnInfo() {
 
   elements.turnInfo.innerHTML = `
     <div class="turn-header">
-      <div class="badge">Round ${state.round}</div>
-      <div class="badge player-badge" style="--player-color: ${player.color}">
-        ${player.name}
-      </div>
       <div class="badge status-${player.status.toLowerCase()}">${player.status}</div>
     </div>
     <div class="turn-layout">
@@ -1274,6 +1342,17 @@ function renderTurnInfo() {
   elements.turnInfo.querySelectorAll("[data-drop-weapon]").forEach((button) => {
     button.addEventListener("click", () => dropWeapon(Number(button.dataset.dropWeapon)));
   });
+}
+
+function renderBoardHeader() {
+  const player = getCurrentPlayer();
+  if (!elements.boardHeader) return;
+  elements.boardHeader.innerHTML = `
+    <div class="badge">Round ${state.round}</div>
+    <div class="badge player-badge" style="--player-color: ${player.color}">
+      ${player.name}
+    </div>
+  `;
 }
 
 function renderAvatarParts(player) {
