@@ -29,6 +29,8 @@ const state = {
   log: [],
   seed: null,
   rng: null,
+  crateInterval: 5,
+  lastActionMessage: "—",
   nextItemId: 1,
 };
 
@@ -88,6 +90,7 @@ const elements = {
   mapSelect: document.getElementById("mapSelect"),
   playerCount: document.getElementById("playerCount"),
   seedInput: document.getElementById("seedInput"),
+  crateInterval: document.getElementById("crateInterval"),
   newGame: document.getElementById("newGame"),
   resetGame: document.getElementById("resetGame"),
   saveGame: document.getElementById("saveGame"),
@@ -96,9 +99,7 @@ const elements = {
   groundItems: document.getElementById("groundItems"),
   inventory: document.getElementById("inventory"),
   log: document.getElementById("log"),
-  rollMin: document.getElementById("rollMin"),
-  rollMax: document.getElementById("rollMax"),
-  rollButton: document.getElementById("rollButton"),
+  lastActionMessage: document.getElementById("lastActionMessage"),
   endTurn: document.getElementById("endTurn"),
   useMedkit: document.getElementById("useMedkit"),
 };
@@ -128,7 +129,6 @@ function init() {
   elements.loadGame.addEventListener("click", loadGame);
   elements.endTurn.addEventListener("click", endTurn);
   elements.useMedkit.addEventListener("click", useMedkit);
-  elements.rollButton.addEventListener("click", rollRandom);
 
   document.querySelectorAll("[data-move]").forEach((button) => {
     button.addEventListener("click", () => handleMove(button.dataset.move));
@@ -168,6 +168,7 @@ function startNewGame(keepMapSelection = false) {
   state.attackMode = null;
   state.round = 1;
   state.currentPlayerIndex = 0;
+  state.lastActionMessage = "—";
 
   if (!keepMapSelection) {
     elements.mapSelect.value = elements.mapSelect.value || "Maze";
@@ -182,6 +183,7 @@ function startNewGame(keepMapSelection = false) {
   const seedValue = elements.seedInput.value ? Number(elements.seedInput.value) : Date.now();
   state.seed = seedValue;
   state.rng = mulberry32(seedValue);
+  state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 5);
 
   assignSpawnPoints();
   startTurn();
@@ -258,7 +260,8 @@ function startTurn() {
       continue;
     }
     updateActionPoints(player);
-    if (player.id === 1 && state.round % 5 === 1) {
+    const interval = Math.max(1, Number(state.crateInterval) || 1);
+    if (player.id === 1 && (state.round - 1) % interval === 0) {
       spawnCrate();
     }
     logEvent(`Turn ${state.round} player ${player.name}.`);
@@ -902,17 +905,6 @@ function addGroundItem(item, x, y) {
   });
 }
 
-function rollRandom() {
-  const min = Number(elements.rollMin.value);
-  const max = Number(elements.rollMax.value);
-  if (Number.isNaN(min) || Number.isNaN(max) || min > max) {
-    logEvent("Invalid roll range.");
-    return;
-  }
-  const value = roll(min, max);
-  logEvent(`Rolled ${value} (range ${min}-${max}).`);
-}
-
 function getCurrentPlayer() {
   return state.players[state.currentPlayerIndex];
 }
@@ -980,6 +972,7 @@ function hasLineOfSight(x1, y1, x2, y2) {
 function render() {
   renderGrid();
   renderTurnInfo();
+  renderLastAction();
   renderGroundItems();
   renderInventory();
   renderLog();
@@ -1192,12 +1185,22 @@ function renderLog() {
   });
 }
 
+function renderLastAction() {
+  if (elements.lastActionMessage) {
+    elements.lastActionMessage.textContent = state.lastActionMessage || "—";
+  }
+}
+
 function getCellElement(x, y) {
   return elements.grid.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
 }
 
 function logEvent(message) {
   state.log.push(message);
+  state.lastActionMessage = message;
+  if (elements.lastActionMessage) {
+    elements.lastActionMessage.textContent = message;
+  }
   if (state.log.length > MAX_LOG) {
     state.log.shift();
   }
@@ -1236,6 +1239,7 @@ function loadGame() {
   state.rng = mulberry32(state.seed);
   logEvent("Game loaded.");
   elements.mapSelect.value = state.mapName;
+  elements.crateInterval.value = state.crateInterval || 5;
   render();
 }
 

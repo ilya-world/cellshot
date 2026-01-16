@@ -14,8 +14,8 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: auto;
 }
 
 header {
@@ -139,19 +139,24 @@ main {
   color: #fff;
 }
 
-.roll-panel {
+.action-message {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
   padding: 12px;
   border: 1px solid #202634;
   border-radius: 12px;
   background: #12151b;
 }
 
-.roll-panel h3 {
+.action-message h3 {
   margin: 0;
   font-size: 14px;
+}
+
+.action-message-body {
+  font-size: 13px;
+  color: #d1d5db;
 }
 
 .side-panel {
@@ -501,9 +506,9 @@ main {
 }
 
 .items-panel,
-.inventory-panel {
-  max-height: 180px;
-  overflow: auto;
+.inventory-panel,
+.log-panel {
+  min-height: 240px;
 }
 
 .item-row,
@@ -527,8 +532,7 @@ main {
 }
 
 .log-panel {
-  max-height: 220px;
-  overflow: auto;
+  min-height: 320px;
 }
 
 .log-entry {
