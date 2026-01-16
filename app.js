@@ -1206,6 +1206,7 @@ function renderGrid() {
 
 function renderTurnInfo() {
   const player = getCurrentPlayer();
+  const moveDisplayMax = player.inventory.some((item) => item.category === "Exoskeleton") ? 5 : 3;
   const weaponInfo = player.weapons
     .map((weapon, index) => {
       const canReload = Boolean(WEAPON_CAPACITY[weapon.weaponName]);
@@ -1247,7 +1248,7 @@ function renderTurnInfo() {
       <div class="action-panel">
         <div class="action-group">
           <span class="action-label">Moves</span>
-          <div class="point-boxes">${renderPointBoxes(state.moves, 3)}</div>
+          <div class="point-boxes">${renderPointBoxes(state.moves, moveDisplayMax)}</div>
         </div>
         <div class="action-group">
           <span class="action-label">Weapon</span>
