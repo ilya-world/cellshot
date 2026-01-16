@@ -133,6 +133,45 @@ main {
   outline: 2px solid #ffcc00;
 }
 
+.cell[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid #2a3242;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: pre-line;
+  color: #f3f4f6;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+  min-width: 120px;
+  text-align: center;
+}
+
+.cell[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: rgba(17, 24, 39, 0.95) transparent transparent transparent;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cell[data-tooltip]:hover::after,
+.cell[data-tooltip]:hover::before {
+  opacity: 1;
+}
+
 .player-token {
   width: 18px;
   height: 18px;
@@ -164,6 +203,16 @@ main {
 .action-message-body {
   font-size: 13px;
   color: #d1d5db;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.action-entry {
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: #111827;
+  border: 1px solid #1f2937;
 }
 
 .side-panel,
@@ -436,6 +485,18 @@ main {
   color: #a8b1c3;
 }
 
+.weapon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.weapon-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .controls {
   display: flex;
   flex-direction: column;
@@ -478,27 +539,6 @@ main {
   font-size: 14px;
 }
 
-.weapon-group {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.weapon-block {
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid #2a3242;
-  background: #0f1420;
-}
-
-.weapon-block-title {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #9aa4b2;
-}
 
 .action-bar {
   display: flex;
