@@ -29,6 +29,10 @@
         Seed
         <input id="seedInput" type="number" placeholder="Optional" />
       </label>
+      <label>
+        Crates every N turns
+        <input id="crateInterval" type="number" min="1" value="5" />
+      </label>
       <button id="newGame">New Game</button>
       <button id="resetGame">Reset</button>
       <button id="saveGame">Save</button>
@@ -39,17 +43,9 @@
   <main>
     <section class="board-section">
       <div id="grid" class="grid"></div>
-      <div class="roll-panel">
-        <h3>RANDOM / ROLL</h3>
-        <label>
-          From
-          <input id="rollMin" type="number" value="1" />
-        </label>
-        <label>
-          To
-          <input id="rollMax" type="number" value="6" />
-        </label>
-        <button id="rollButton">Roll</button>
+      <div class="action-message">
+        <h3>Last action</h3>
+        <div id="lastActionMessage" class="action-message-body">—</div>
       </div>
     </section>
 
