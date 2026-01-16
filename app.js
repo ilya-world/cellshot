@@ -281,9 +281,13 @@ function updateActionPoints(player) {
 function calculateMoves(player) {
   const leftDamaged = player.leftLegArmor < 0;
   const rightDamaged = player.rightLegArmor < 0;
-  if (leftDamaged && rightDamaged) return 0;
-  if (leftDamaged || rightDamaged) return 1;
-  return 3;
+  let baseMoves = 3;
+  if (leftDamaged && rightDamaged) {
+    baseMoves = 0;
+  } else if (leftDamaged || rightDamaged) {
+    baseMoves = 1;
+  }
+  return baseMoves + getMoveBonus(player);
 }
 
 function calculateWeaponPoints(player) {
@@ -369,7 +373,7 @@ function handleCratePickup(x, y) {
   );
   if (crateIndex === -1) return;
   state.items.splice(crateIndex, 1);
-  const prizeRoll = roll(1, 6);
+  const prizeRoll = roll(1, 7);
   logEvent("Crate opened.");
   createCratePrize(prizeRoll, x, y);
   render();
@@ -462,6 +466,14 @@ function createCratePrize(rollValue, x, y) {
       }, x, y);
       logEvent("Crate contains a Sword.");
       break;
+    case 7:
+      addGroundItem({
+        displayName: "Exoskeleton",
+        category: "Exoskeleton",
+        quantity: 1,
+      }, x, y);
+      logEvent("Crate contains an Exoskeleton.");
+      break;
     default:
       break;
   }
@@ -474,9 +486,7 @@ function spawnCrate() {
       const cell = getCellType(x, y);
       if (cell === "W" || cell === "R") continue;
       if (getPlayerAt(x, y)) continue;
-      if (state.items.some((item) => item.type === "Crate" && item.x === x && item.y === y)) {
-        continue;
-      }
+      if (state.items.some((item) => item.x === x && item.y === y)) continue;
       available.push({ x, y });
     }
   }
@@ -654,21 +664,31 @@ function dropPlayerLoot(player) {
   if (!x || !y) return;
 
   player.weapons.forEach((weapon) => {
-    if (weapon.weaponName !== "None" && weapon.weaponName !== "Knife") {
+    if (weapon.weaponName !== "None" && weapon.weaponName !== "Knife" && weapon.weaponName !== "Pistol") {
       addGroundItem({
         displayName: weapon.weaponName,
         category: "Weapon",
         quantity: weapon.activeAmmo,
         additional: weapon.weaponName,
       }, x, y);
-      if (weapon.passiveAmmo > 0) {
+    }
+    if (weapon.weaponName === "Pistol") {
+      const ammoTotal = weapon.activeAmmo + weapon.passiveAmmo;
+      if (ammoTotal > 0) {
         addGroundItem({
-          displayName: `${weapon.weaponName} ammo (${weapon.passiveAmmo})`,
+          displayName: `Pistol ammo (${ammoTotal})`,
           category: "Ammo",
-          quantity: weapon.passiveAmmo,
-          additional: weapon.weaponName,
+          quantity: ammoTotal,
+          additional: "Pistol",
         }, x, y);
       }
+    } else if (weapon.passiveAmmo > 0) {
+      addGroundItem({
+        displayName: `${weapon.weaponName} ammo (${weapon.passiveAmmo})`,
+        category: "Ammo",
+        quantity: weapon.passiveAmmo,
+        additional: weapon.weaponName,
+      }, x, y);
     }
     weapon.weaponName = "None";
     weapon.activeAmmo = 0;
@@ -1294,16 +1314,22 @@ function renderGroundItemButtons(item) {
   if (item.category === "Armor") {
     buttons.push({ label: "Equip", action: "equip" });
     buttons.push({ label: "Take", action: "take" });
+  } else if (item.category === "Exoskeleton") {
+    buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: "Destroy", action: "destroy" });
   } else if (item.category === "Medkit") {
     buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: "Destroy", action: "destroy" });
   } else if (item.category === "Weapon") {
     buttons.push({ label: "Equip A", action: "equip", slot: 0 });
     buttons.push({ label: "Equip B", action: "equip", slot: 1 });
     buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: "Destroy", action: "destroy" });
   } else if (item.category === "Ammo") {
     buttons.push({ label: "Equip A", action: "equip", slot: 0 });
     buttons.push({ label: "Equip B", action: "equip", slot: 1 });
     buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: "Destroy", action: "destroy" });
   } else {
     buttons.push({ label: "Take", action: "take" });
     buttons.push({ label: "Destroy", action: "destroy" });
@@ -1372,6 +1398,11 @@ function logEvent(message) {
   if (state.log.length > MAX_LOG) {
     state.log.shift();
   }
+}
+
+function getMoveBonus(player) {
+  const hasExoskeleton = player.inventory.some((item) => item.category === "Exoskeleton");
+  return hasExoskeleton ? 2 : 0;
 }
 
 function roll(min, max) {

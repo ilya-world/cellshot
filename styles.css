@@ -73,7 +73,7 @@ button:hover {
 
 main {
   display: grid;
-  grid-template-columns: 1.2fr 0.7fr 0.7fr;
+  grid-template-columns: max-content 1fr 1fr;
   gap: 16px;
   padding: 16px;
   flex: 1;
@@ -84,6 +84,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: max-content;
+  justify-self: start;
 }
 
 .grid {
@@ -151,6 +153,7 @@ main {
   border: 1px solid #202634;
   border-radius: 12px;
   background: #12151b;
+  width: 100%;
 }
 
 .action-message h3 {
@@ -602,7 +605,7 @@ main {
 .item-row,
 .inventory-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr repeat(4, auto);
   gap: 6px;
   align-items: center;
   padding: 6px 0;
