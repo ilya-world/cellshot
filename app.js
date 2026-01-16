@@ -134,15 +134,6 @@ function init() {
   document.querySelectorAll("[data-move]").forEach((button) => {
     button.addEventListener("click", () => handleMove(button.dataset.move));
   });
-  document.querySelectorAll("[data-weapon]").forEach((button) => {
-    button.addEventListener("click", () => enterAttackMode(Number(button.dataset.weapon)));
-  });
-  document.querySelectorAll("[data-reload]").forEach((button) => {
-    button.addEventListener("click", () => reloadWeapon(Number(button.dataset.reload)));
-  });
-  document.querySelectorAll("[data-drop-weapon]").forEach((button) => {
-    button.addEventListener("click", () => dropWeapon(Number(button.dataset.dropWeapon)));
-  });
 
   document.addEventListener("keydown", handleHotkeys);
 
@@ -317,6 +308,11 @@ function handleHotkeys(event) {
   const activeTag = document.activeElement?.tagName?.toLowerCase();
   if (["input", "select", "textarea"].includes(activeTag)) return;
   const key = event.key.toLowerCase();
+  if (state.attackMode && /^\d$/.test(key)) {
+    event.preventDefault();
+    handleTargetHotkey(Number(key));
+    return;
+  }
   const moveMap = {
     arrowup: "up",
     w: "up",
@@ -332,10 +328,34 @@ function handleHotkeys(event) {
     handleMove(moveMap[key]);
     return;
   }
+  if (key === "1" || key === "2") {
+    event.preventDefault();
+    enterAttackMode(Number(key) - 1);
+    return;
+  }
   if (key === "e" || key === "enter") {
     event.preventDefault();
     endTurn();
   }
+}
+
+function handleTargetHotkey(targetId) {
+  if (!state.attackMode) return;
+  const attacker = getCurrentPlayer();
+  const target = state.players.find(
+    (player) => player.id === targetId && player.status === "Alive"
+  );
+  if (!target) {
+    logEvent("Target is not available.");
+    return;
+  }
+  if (target.id === attacker.id) {
+    logEvent("Cannot target yourself.");
+    return;
+  }
+  const slot = state.attackMode.slot;
+  state.attackMode = null;
+  executeAttack(slot, target.x, target.y);
 }
 
 function attemptMove(dx, dy) {
@@ -507,6 +527,14 @@ function enterAttackMode(slot) {
   if (player.weapons[slot].weaponName === "None") {
     logEvent("No weapon in that slot.");
     return;
+  }
+  const weaponName = player.weapons[slot].weaponName;
+  if (["Knife", "Sword"].includes(weaponName)) {
+    const targets = getPotentialTargets(player, weaponName);
+    if (targets.length === 1) {
+      executeAttack(slot, targets[0].x, targets[0].y);
+      return;
+    }
   }
   state.attackMode = { slot };
   render();
@@ -1030,6 +1058,14 @@ function canTargetCell(attacker, weaponName, x, y) {
   return hasLineOfSight(attacker.x, attacker.y, x, y);
 }
 
+function getPotentialTargets(attacker, weaponName) {
+  return state.players.filter((player) => {
+    if (player.status !== "Alive") return false;
+    if (player.id === attacker.id) return false;
+    return canTargetCell(attacker, weaponName, player.x, player.y);
+  });
+}
+
 function hasLineOfSight(x1, y1, x2, y2) {
   let x = x1;
   let y = y1;
@@ -1073,6 +1109,7 @@ function renderGrid() {
   cells.forEach((cell) => {
     cell.className = "cell";
     cell.innerHTML = "";
+    cell.removeAttribute("data-tooltip");
   });
 
   state.map.grid.forEach((row, y) => {
@@ -1091,6 +1128,21 @@ function renderGrid() {
       .filter((player) => player.status === "Alive")
       .map((player) => `${player.x},${player.y}`)
   );
+  const cratesByCell = new Set(
+    state.items
+      .filter((item) => item.type === "Crate")
+      .map((item) => `${item.x},${item.y}`)
+  );
+  const groundItemsByCell = new Map();
+  state.items
+    .filter((item) => item.type === "GroundItem")
+    .forEach((item) => {
+      const key = `${item.x},${item.y}`;
+      if (!groundItemsByCell.has(key)) {
+        groundItemsByCell.set(key, []);
+      }
+      groundItemsByCell.get(key).push(item.displayName);
+    });
   const itemCells = new Set(
     state.items
       .filter((item) => item.type === "Crate" || item.type === "GroundItem")
@@ -1100,7 +1152,12 @@ function renderGrid() {
     if (occupiedByPlayer.has(key)) return;
     const [x, y] = key.split(",").map(Number);
     const cell = getCellElement(x, y);
-    if (cell) cell.classList.add("has-items");
+    if (cell) {
+      cell.classList.add("has-items");
+      if (!cratesByCell.has(key) && groundItemsByCell.has(key)) {
+        cell.dataset.tooltip = groundItemsByCell.get(key).join("\n");
+      }
+    }
   });
 
   state.items.forEach((item) => {
@@ -1138,7 +1195,10 @@ function renderGrid() {
 function renderTurnInfo() {
   const player = getCurrentPlayer();
   const weaponInfo = player.weapons
-    .map((weapon, index) => `
+    .map((weapon, index) => {
+      const canReload = Boolean(WEAPON_CAPACITY[weapon.weaponName]);
+      const disabled = weapon.weaponName === "None" ? "disabled" : "";
+      return `
       <div class="weapon-card">
         <div class="weapon-title">Slot ${index + 1}</div>
         <div class="weapon-name">${weapon.weaponName}</div>
@@ -1147,8 +1207,14 @@ function renderTurnInfo() {
       ? "—"
       : `${weapon.activeAmmo}/${weapon.passiveAmmo}`
   }</div>
+        <div class="weapon-actions">
+          <button data-weapon="${index}" ${disabled}>Attack</button>
+          ${canReload ? `<button data-reload="${index}" ${disabled}>Reload</button>` : ""}
+          <button data-drop-weapon="${index}" ${disabled}>Drop</button>
+        </div>
       </div>
-    `)
+    `;
+    })
     .join("");
 
   elements.turnInfo.innerHTML = `
@@ -1185,6 +1251,16 @@ function renderTurnInfo() {
       </div>
     </div>
   `;
+
+  elements.turnInfo.querySelectorAll("[data-weapon]").forEach((button) => {
+    button.addEventListener("click", () => enterAttackMode(Number(button.dataset.weapon)));
+  });
+  elements.turnInfo.querySelectorAll("[data-reload]").forEach((button) => {
+    button.addEventListener("click", () => reloadWeapon(Number(button.dataset.reload)));
+  });
+  elements.turnInfo.querySelectorAll("[data-drop-weapon]").forEach((button) => {
+    button.addEventListener("click", () => dropWeapon(Number(button.dataset.dropWeapon)));
+  });
 }
 
 function renderAvatarParts(player) {
@@ -1377,7 +1453,14 @@ function renderLog() {
 
 function renderLastAction() {
   if (elements.lastActionMessage) {
-    elements.lastActionMessage.textContent = state.lastActionMessage || "—";
+    const entries = state.log.slice(-5).reverse();
+    if (entries.length === 0) {
+      elements.lastActionMessage.textContent = "—";
+      return;
+    }
+    elements.lastActionMessage.innerHTML = entries
+      .map((entry) => `<div class="action-entry">${entry}</div>`)
+      .join("");
   }
 }
 
@@ -1388,7 +1471,7 @@ function getCellElement(x, y) {
 function setLastActionMessage(message) {
   state.lastActionMessage = message;
   if (elements.lastActionMessage) {
-    elements.lastActionMessage.textContent = message;
+    renderLastAction();
   }
 }
 
