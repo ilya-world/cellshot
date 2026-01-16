@@ -96,6 +96,7 @@ const elements = {
   saveGame: document.getElementById("saveGame"),
   loadGame: document.getElementById("loadGame"),
   turnInfo: document.getElementById("turnInfo"),
+  playerSummary: document.getElementById("playerSummary"),
   groundItems: document.getElementById("groundItems"),
   inventory: document.getElementById("inventory"),
   log: document.getElementById("log"),
@@ -142,6 +143,8 @@ function init() {
   document.querySelectorAll("[data-drop-weapon]").forEach((button) => {
     button.addEventListener("click", () => dropWeapon(Number(button.dataset.dropWeapon)));
   });
+
+  document.addEventListener("keydown", handleHotkeys);
 
   buildGrid();
   startNewGame(true);
@@ -303,6 +306,32 @@ function handleMove(direction) {
   }[direction];
 
   attemptMove(delta.dx, delta.dy);
+}
+
+function handleHotkeys(event) {
+  if (event.repeat) return;
+  const activeTag = document.activeElement?.tagName?.toLowerCase();
+  if (["input", "select", "textarea"].includes(activeTag)) return;
+  const key = event.key.toLowerCase();
+  const moveMap = {
+    arrowup: "up",
+    w: "up",
+    arrowdown: "down",
+    s: "down",
+    arrowleft: "left",
+    a: "left",
+    arrowright: "right",
+    d: "right",
+  };
+  if (moveMap[key]) {
+    event.preventDefault();
+    handleMove(moveMap[key]);
+    return;
+  }
+  if (key === "e" || key === "enter") {
+    event.preventDefault();
+    endTurn();
+  }
 }
 
 function attemptMove(dx, dy) {
@@ -514,17 +543,28 @@ function executeAttack(slot, targetX, targetY) {
 
   const shots = ["Shotgun", "Sword"].includes(weapon.weaponName) ? 2 : 1;
   const distancePenalty = attacker.leftArmArmor < 0 || attacker.rightArmArmor < 0 ? 2 : 0;
+  const shotReports = [];
 
   for (let shot = 0; shot < shots; shot += 1) {
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
-      logEvent(`${attacker.name} rolled ${distanceCheck} to hit.`);
-      applyHit(attacker, target);
-      if (target.status === "Dead") {
+      const hitInfo = applyHit(attacker, target);
+      const locationDetails = hitInfo.partRoll
+        ? `location roll ${hitInfo.bodyRoll}, part roll ${hitInfo.partRoll} -> ${hitInfo.part}`
+        : `location roll ${hitInfo.bodyRoll} -> ${hitInfo.part}`;
+      let report = `Shot ${shot + 1}: hit (roll ${distanceCheck}), ${locationDetails}.`;
+      if (hitInfo.killed) {
+        report += ` ${target.name} died (hit ${hitInfo.part}).`;
+      }
+      logEvent(report);
+      shotReports.push(report);
+      if (hitInfo.killed) {
         break;
       }
     } else {
-      logEvent(`${attacker.name} missed (roll ${distanceCheck}).`);
+      const report = `Shot ${shot + 1}: missed (roll ${distanceCheck}).`;
+      logEvent(report);
+      shotReports.push(report);
     }
   }
 
@@ -535,20 +575,31 @@ function executeAttack(slot, targetX, targetY) {
     state.moves = 0;
   }
 
+  if (shotReports.length > 0) {
+    setLastActionMessage(`${attacker.name} attacked ${target.name}: ${shotReports.join(" ")}`);
+  }
   render();
 }
 
 function applyHit(attacker, target) {
   const bodyCheck = roll(1, 6);
   let part = "Body";
+  let partCheck = null;
   if (bodyCheck >= 4) {
-    const partCheck = roll(1, 6);
+    partCheck = roll(1, 6);
     const parts = ["Body", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "Head"];
     part = parts[partCheck - 1];
   }
 
-  logEvent(`${attacker.name} hit ${target.name} in ${part}.`);
+  const wasAlive = target.status === "Alive";
   applyDamage(target, part, attacker);
+  const killed = wasAlive && target.status === "Dead";
+  return {
+    part,
+    bodyRoll: bodyCheck,
+    partRoll: partCheck,
+    killed,
+  };
 }
 
 function applyDamage(target, part, attacker) {
@@ -560,13 +611,13 @@ function applyDamage(target, part, attacker) {
         target.health -= 1;
       }
       if (target.health <= 0) {
-        handleDeath(attacker, target);
+        handleDeath(attacker, target, part);
       }
       break;
     case "Head":
       target.headArmor -= 1;
       if (target.headArmor < 0) {
-        handleDeath(attacker, target);
+        handleDeath(attacker, target, part);
       }
       break;
     case "Left Arm":
@@ -586,13 +637,13 @@ function applyDamage(target, part, attacker) {
   }
 }
 
-function handleDeath(attacker, target) {
+function handleDeath(attacker, target, part) {
   target.status = "Dead";
   target.deaths += 1;
   if (attacker) {
     attacker.frags += 1;
   }
-  logEvent(`${target.name} died.`);
+  logEvent(`${target.name} died (hit ${part}).`);
   dropPlayerLoot(target);
   target.x = 0;
   target.y = 0;
@@ -691,6 +742,10 @@ function reloadWeapon(slot) {
     logEvent("This weapon cannot be reloaded.");
     return;
   }
+  if (state.weaponPoints <= 0) {
+    logEvent("No weapon points left.");
+    return;
+  }
   const maxAmmo = WEAPON_CAPACITY[weapon.weaponName];
   if (weapon.activeAmmo >= maxAmmo) {
     logEvent("Weapon already full.");
@@ -704,33 +759,44 @@ function reloadWeapon(slot) {
   const toLoad = Math.min(needed, weapon.passiveAmmo);
   weapon.activeAmmo += toLoad;
   weapon.passiveAmmo -= toLoad;
+  state.weaponPoints = Math.max(0, state.weaponPoints - 1);
   logEvent(`Reloaded ${weapon.weaponName} by ${toLoad}.`);
   render();
 }
 
 function dropWeapon(slot) {
   const player = getCurrentPlayer();
-  const weapon = player.weapons[slot];
-  if (weapon.weaponName === "None") {
+  const dropped = dropWeaponFromSlot(player, slot, player.x, player.y);
+  if (!dropped) {
     logEvent("Nothing to drop.");
     return;
+  }
+  logEvent(`${dropped} dropped.`);
+  render();
+}
+
+function dropWeaponFromSlot(player, slot, x, y) {
+  const weapon = player.weapons[slot];
+  if (weapon.weaponName === "None") {
+    return null;
   }
   addGroundItem({
     displayName: weapon.weaponName,
     category: "Weapon",
     quantity: weapon.activeAmmo,
     additional: weapon.weaponName,
-  }, player.x, player.y);
+  }, x, y);
   if (weapon.passiveAmmo > 0) {
     addGroundItem({
       displayName: `${weapon.weaponName} ammo (${weapon.passiveAmmo})`,
       category: "Ammo",
       quantity: weapon.passiveAmmo,
       additional: weapon.weaponName,
-    }, player.x, player.y);
+    }, x, y);
   }
+  const name = weapon.weaponName;
   player.weapons[slot] = { weaponName: "None", activeAmmo: 0, passiveAmmo: 0 };
-  render();
+  return name;
 }
 
 function useMedkit() {
@@ -799,8 +865,10 @@ function handleGroundItemAction(itemId, action, slot) {
 function equipWeapon(item, slot, itemIndex) {
   const player = getCurrentPlayer();
   if (player.weapons[slot].weaponName !== "None") {
-    logEvent("Drop your current weapon first.");
-    return;
+    const dropped = dropWeaponFromSlot(player, slot, player.x, player.y);
+    if (dropped) {
+      logEvent(`${dropped} dropped from slot ${slot + 1}.`);
+    }
   }
   player.weapons[slot] = {
     weaponName: item.additional,
@@ -972,6 +1040,8 @@ function hasLineOfSight(x1, y1, x2, y2) {
 function render() {
   renderGrid();
   renderTurnInfo();
+  renderPlayerSummary();
+  renderControls();
   renderLastAction();
   renderGroundItems();
   renderInventory();
@@ -994,6 +1064,23 @@ function renderGrid() {
       if (cellType === "R") cell.classList.add("river");
       if (cellType === "S") cell.classList.add("spawn");
     });
+  });
+
+  const occupiedByPlayer = new Set(
+    state.players
+      .filter((player) => player.status === "Alive")
+      .map((player) => `${player.x},${player.y}`)
+  );
+  const itemCells = new Set(
+    state.items
+      .filter((item) => item.type === "Crate" || item.type === "GroundItem")
+      .map((item) => `${item.x},${item.y}`)
+  );
+  itemCells.forEach((key) => {
+    if (occupiedByPlayer.has(key)) return;
+    const [x, y] = key.split(",").map(Number);
+    const cell = getCellElement(x, y);
+    if (cell) cell.classList.add("has-items");
   });
 
   state.items.forEach((item) => {
@@ -1055,24 +1142,7 @@ function renderTurnInfo() {
     <div class="turn-layout">
       <div class="avatar-panel">
         <div class="avatar">
-          <div class="body-part head ${partStateClass(player.headArmor)}">
-            ${renderArmorBadge(player.headArmor)}
-          </div>
-          <div class="body-part torso ${partStateClass(player.bodyArmor)}">
-            ${renderArmorBadge(player.bodyArmor)}
-          </div>
-          <div class="body-part arm left ${partStateClass(player.leftArmArmor)}">
-            ${renderArmorBadge(player.leftArmArmor)}
-          </div>
-          <div class="body-part arm right ${partStateClass(player.rightArmArmor)}">
-            ${renderArmorBadge(player.rightArmArmor)}
-          </div>
-          <div class="body-part leg left ${partStateClass(player.leftLegArmor)}">
-            ${renderArmorBadge(player.leftLegArmor)}
-          </div>
-          <div class="body-part leg right ${partStateClass(player.rightLegArmor)}">
-            ${renderArmorBadge(player.rightLegArmor)}
-          </div>
+          ${renderAvatarParts(player)}
         </div>
         <div class="hp-row">${renderHearts(player.health)}</div>
       </div>
@@ -1095,6 +1165,72 @@ function renderTurnInfo() {
       </div>
     </div>
   `;
+}
+
+function renderAvatarParts(player) {
+  return `
+    <div class="body-part head ${partStateClass(player.headArmor)}">
+      ${renderArmorBadge(player.headArmor)}
+    </div>
+    <div class="body-part torso ${partStateClass(player.bodyArmor)}">
+      ${renderArmorBadge(player.bodyArmor)}
+    </div>
+    <div class="body-part arm left ${partStateClass(player.leftArmArmor)}">
+      ${renderArmorBadge(player.leftArmArmor)}
+    </div>
+    <div class="body-part arm right ${partStateClass(player.rightArmArmor)}">
+      ${renderArmorBadge(player.rightArmArmor)}
+    </div>
+    <div class="body-part leg left ${partStateClass(player.leftLegArmor)}">
+      ${renderArmorBadge(player.leftLegArmor)}
+    </div>
+    <div class="body-part leg right ${partStateClass(player.rightLegArmor)}">
+      ${renderArmorBadge(player.rightLegArmor)}
+    </div>
+  `;
+}
+
+function renderPlayerSummary() {
+  if (!elements.playerSummary) return;
+  elements.playerSummary.innerHTML = state.players
+    .map((player) => {
+      const weaponSummary = player.weapons
+        .map((weapon, index) => `Slot ${index + 1}: ${weapon.weaponName}`)
+        .join("<br />");
+      return `
+        <div class="player-summary-card">
+          <div class="mini-avatar">
+            <div class="avatar">
+              ${renderAvatarParts(player)}
+            </div>
+          </div>
+          <div class="player-summary-main">
+            <div class="player-summary-header">
+              <span class="player-color-dot" style="--player-color: ${player.color}"></span>
+              <span>${player.name}</span>
+              <span class="muted">${player.status}</span>
+            </div>
+            <div class="hp-row">${renderHearts(player.health)}</div>
+            <div class="player-summary-stats">
+              <span>Frags ${player.frags}</span>
+              <span>Deaths ${player.deaths}</span>
+            </div>
+            <div class="player-summary-weapons">
+              ${weaponSummary}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderControls() {
+  const player = getCurrentPlayer();
+  const hasMedkit = player.inventory.some((item) => item.category === "Medkit");
+  elements.useMedkit.style.display = hasMedkit ? "inline-flex" : "none";
+  const endTurnIsDanger = state.moves === 0 && state.weaponPoints === 0;
+  elements.endTurn.classList.toggle("danger", endTurnIsDanger);
 }
 
 function partStateClass(value) {
@@ -1140,10 +1276,7 @@ function renderGroundItems() {
     row.className = "item-row";
     row.innerHTML = `
       <span>${item.displayName}</span>
-      <button data-action="equip" data-slot="0">Equip A</button>
-      <button data-action="equip" data-slot="1">Equip B</button>
-      <button data-action="take">Take</button>
-      <button data-action="destroy">Destroy</button>
+      ${renderGroundItemButtons(item)}
     `;
     row.querySelectorAll("button").forEach((button) => {
       const action = button.dataset.action;
@@ -1154,6 +1287,37 @@ function renderGroundItems() {
     });
     elements.groundItems.appendChild(row);
   });
+}
+
+function renderGroundItemButtons(item) {
+  const buttons = [];
+  if (item.category === "Armor") {
+    buttons.push({ label: "Equip", action: "equip" });
+    buttons.push({ label: "Take", action: "take" });
+  } else if (item.category === "Medkit") {
+    buttons.push({ label: "Take", action: "take" });
+  } else if (item.category === "Weapon") {
+    buttons.push({ label: "Equip A", action: "equip", slot: 0 });
+    buttons.push({ label: "Equip B", action: "equip", slot: 1 });
+    buttons.push({ label: "Take", action: "take" });
+  } else if (item.category === "Ammo") {
+    buttons.push({ label: "Equip A", action: "equip", slot: 0 });
+    buttons.push({ label: "Equip B", action: "equip", slot: 1 });
+    buttons.push({ label: "Take", action: "take" });
+  } else {
+    buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: "Destroy", action: "destroy" });
+  }
+
+  return buttons
+    .map(
+      (button) => `
+        <button data-action="${button.action}"${button.slot !== undefined ? ` data-slot="${button.slot}"` : ""}>
+          ${button.label}
+        </button>
+      `
+    )
+    .join("");
 }
 
 function renderInventory() {
@@ -1195,12 +1359,16 @@ function getCellElement(x, y) {
   return elements.grid.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
 }
 
-function logEvent(message) {
-  state.log.push(message);
+function setLastActionMessage(message) {
   state.lastActionMessage = message;
   if (elements.lastActionMessage) {
     elements.lastActionMessage.textContent = message;
   }
+}
+
+function logEvent(message) {
+  state.log.push(message);
+  setLastActionMessage(message);
   if (state.log.length > MAX_LOG) {
     state.log.shift();
   }
