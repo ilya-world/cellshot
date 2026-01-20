@@ -1188,33 +1188,99 @@ function getAiMove(player) {
     { dx: -1, dy: 0 },
     { dx: 1, dy: 0 },
   ];
-  const validMoves = directions.filter(({ dx, dy }) => {
-    const nextX = player.x + dx;
-    const nextY = player.y + dy;
-    if (!isWithinBounds(nextX, nextY)) return false;
-    const cellType = getCellType(nextX, nextY);
+  const maxSteps = Math.max(0, state.moves);
+  if (maxSteps <= 0) return null;
+
+  const hasTraversableCell = (x, y) => {
+    if (!isWithinBounds(x, y)) return false;
+    const cellType = getCellType(x, y);
     if (cellType === "W" || cellType === "R") return false;
-    return !getPlayerAt(nextX, nextY);
-  });
-  if (!validMoves.length) return null;
-  const scoredMoves = validMoves.map((move) => {
-    const nextX = player.x + move.dx;
-    const nextY = player.y + move.dy;
+    return !getPlayerAt(x, y);
+  };
+
+  const getThreatScore = (x, y) => {
+    if (!enemies.length) return 0;
+    const threats = enemies.reduce((count, enemy) => {
+      const canThreaten = enemy.weapons.some((weapon) => {
+        if (weapon.weaponName === "None") return false;
+        if (["Pistol", "Shotgun", "Bazooka"].includes(weapon.weaponName)
+          && weapon.activeAmmo <= 0) {
+          return false;
+        }
+        return canTargetCell(enemy, weapon.weaponName, x, y);
+      });
+      return count + (canThreaten ? 1 : 0);
+    }, 0);
+    return threats / enemies.length;
+  };
+
+  const getLootScore = (x, y) => {
+    const itemsHere = state.items.filter((item) => item.x === x && item.y === y);
+    if (!itemsHere.length) return 0;
+    return itemsHere.reduce((score, item) => {
+      if (item.type === "Crate") return score + 2;
+      if (item.type === "GroundItem") {
+        return score + getAiItemValue(item, player);
+      }
+      return score;
+    }, 0);
+  };
+
+  const getCellScore = (x, y) => {
     const enemyDistance = target
-      ? Math.abs(target.x - nextX) + Math.abs(target.y - nextY)
+      ? Math.abs(target.x - x) + Math.abs(target.y - y)
       : null;
     const itemDistance = itemTarget
-      ? Math.abs(itemTarget.item.x - nextX) + Math.abs(itemTarget.item.y - nextY)
+      ? Math.abs(itemTarget.item.x - x) + Math.abs(itemTarget.item.y - y)
       : null;
+    const threatPenalty = getThreatScore(x, y);
+    const lootScore = getLootScore(x, y);
     let score = 0;
-    if (enemyDistance !== null) score -= enemyDistance;
+    if (enemyDistance !== null) score += 6 - enemyDistance;
     if (itemTarget) score += itemTarget.value * 2 - itemDistance;
-    return { move, score };
-  });
-  scoredMoves.sort((a, b) => b.score - a.score);
-  const bestScore = scoredMoves[0].score;
-  const candidates = scoredMoves.filter((entry) => entry.score === bestScore);
-  return candidates[roll(0, candidates.length - 1)].move;
+    score += lootScore * 2;
+    score -= threatPenalty * 5;
+    return score;
+  };
+
+  const startKey = `${player.x},${player.y}`;
+  const visited = new Map([[startKey, { steps: 0, firstMove: null }]]);
+  const queue = [{ x: player.x, y: player.y, steps: 0, firstMove: null }];
+  let bestScore = -Infinity;
+  let bestMoves = [];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) break;
+    if (current.steps > 0) {
+      const score = getCellScore(current.x, current.y);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMoves = [current.firstMove];
+      } else if (score === bestScore && current.firstMove) {
+        bestMoves.push(current.firstMove);
+      }
+    }
+    if (current.steps >= maxSteps) continue;
+    directions.forEach((direction) => {
+      const nextX = current.x + direction.dx;
+      const nextY = current.y + direction.dy;
+      if (!hasTraversableCell(nextX, nextY)) return;
+      const key = `${nextX},${nextY}`;
+      if (visited.has(key)) return;
+      const firstMove = current.firstMove ?? direction;
+      visited.set(key, { steps: current.steps + 1, firstMove });
+      queue.push({
+        x: nextX,
+        y: nextY,
+        steps: current.steps + 1,
+        firstMove,
+      });
+    });
+  }
+
+  if (!bestMoves.length) return null;
+  return bestMoves[roll(0, bestMoves.length - 1)];
 }
 
 async function runAiTurn(turnId) {
