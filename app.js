@@ -998,11 +998,141 @@ function getAiAttackOption(player) {
   return null;
 }
 
+function getAiItemValue(item, player) {
+  if (item.type === "Crate") return 6;
+  if (item.category === "Armor") {
+    const partMap = {
+      Head: "headArmor",
+      Body: "bodyArmor",
+      "Left Arm": "leftArmArmor",
+      "Right Arm": "rightArmArmor",
+      "Left Leg": "leftLegArmor",
+      "Right Leg": "rightLegArmor",
+    };
+    const targetKey = partMap[item.additional];
+    const currentValue = targetKey ? player[targetKey] : 0;
+    if (["Left Arm", "Right Arm", "Left Leg", "Right Leg"].includes(item.additional)
+      && currentValue < 0) {
+      return 0;
+    }
+    return item.quantity > currentValue ? 3 + (item.quantity - currentValue) : 0;
+  }
+  if (item.category === "Medkit") {
+    const hasMedkit = player.inventory.some((entry) => entry.category === "Medkit");
+    const limbCritical = ["leftArmArmor", "rightArmArmor", "leftLegArmor", "rightLegArmor"]
+      .some((key) => player[key] < 0);
+    if (hasMedkit) return 0;
+    return player.health < 3 || limbCritical ? 4 : 2;
+  }
+  if (item.category === "Exoskeleton") {
+    const hasExoskeleton = player.inventory.some((entry) => entry.category === "Exoskeleton");
+    return hasExoskeleton ? 0 : 3;
+  }
+  if (item.category === "Weapon") {
+    const weaponRank = {
+      Knife: 0,
+      Pistol: 1,
+      Sword: 2,
+      Shotgun: 3,
+      Bazooka: 4,
+    };
+    const newRank = weaponRank[item.additional] ?? 0;
+    const currentRanks = player.weapons.map((weapon) => weaponRank[weapon.weaponName] ?? -1);
+    const hasEmptySlot = player.weapons.some((weapon) => weapon.weaponName === "None");
+    const bestCurrent = Math.max(...currentRanks);
+    if (hasEmptySlot) return 3 + newRank;
+    return newRank > bestCurrent ? 3 + (newRank - bestCurrent) : 0;
+  }
+  if (item.category === "Ammo") {
+    const weapon = player.weapons.find((entry) => entry.weaponName === item.additional);
+    if (!weapon) return 0;
+    const limit = PASSIVE_LIMIT[item.additional] || 0;
+    return weapon.passiveAmmo < limit ? 1 : 0;
+  }
+  return 0;
+}
+
+function getAiBestItemTarget(player) {
+  const candidates = state.items
+    .map((item) => ({
+      item,
+      value: getAiItemValue(item, player),
+    }))
+    .filter((entry) => entry.value > 0);
+  if (!candidates.length) return null;
+  return candidates.reduce((best, entry) => {
+    const bestDistance = Math.abs(best.item.x - player.x) + Math.abs(best.item.y - player.y);
+    const entryDistance = Math.abs(entry.item.x - player.x) + Math.abs(entry.item.y - player.y);
+    const bestScore = best.value * 3 - bestDistance;
+    const entryScore = entry.value * 3 - entryDistance;
+    return entryScore > bestScore ? entry : best;
+  }, candidates[0]);
+}
+
+function getAiWeaponSlot(player, weaponName) {
+  const weaponRank = {
+    Knife: 0,
+    Pistol: 1,
+    Sword: 2,
+    Shotgun: 3,
+    Bazooka: 4,
+    None: -1,
+  };
+  const emptySlot = player.weapons.findIndex((weapon) => weapon.weaponName === "None");
+  if (emptySlot !== -1) return emptySlot;
+  const newRank = weaponRank[weaponName] ?? 0;
+  const slotWithWorst = player.weapons.reduce(
+    (best, weapon, index) => {
+      const rank = weaponRank[weapon.weaponName] ?? 0;
+      if (rank < best.rank) return { index, rank };
+      return best;
+    },
+    { index: 0, rank: weaponRank[player.weapons[0].weaponName] ?? 0 }
+  );
+  return newRank > slotWithWorst.rank ? slotWithWorst.index : null;
+}
+
+function tryAiGroundItemAction(player) {
+  const itemsHere = state.items
+    .filter((item) => item.x === player.x && item.y === player.y && item.type === "GroundItem")
+    .map((item) => ({ item, value: getAiItemValue(item, player) }))
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => b.value - a.value);
+  if (!itemsHere.length) return false;
+  const { item } = itemsHere[0];
+  if (item.category === "Armor") {
+    handleGroundItemAction(item.id, "equip", 0, true);
+    return true;
+  }
+  if (item.category === "Weapon") {
+    const slot = getAiWeaponSlot(player, item.additional);
+    if (slot === null) return false;
+    handleGroundItemAction(item.id, "equip", slot, true);
+    return true;
+  }
+  if (item.category === "Ammo") {
+    const slot = player.weapons.findIndex(
+      (weapon) => weapon.weaponName === item.additional
+    );
+    if (slot === -1) return false;
+    const limit = PASSIVE_LIMIT[item.additional] || 0;
+    if (player.weapons[slot].passiveAmmo >= limit) return false;
+    handleGroundItemAction(item.id, "equip", slot, true);
+    return true;
+  }
+  if (item.category === "Medkit" || item.category === "Exoskeleton") {
+    handleGroundItemAction(item.id, "take", 0, true);
+    return true;
+  }
+  return false;
+}
+
 function getAiMove(player) {
   const enemies = state.players.filter(
     (target) => target.status === "Alive" && target.id !== player.id
   );
   const target = getClosestTarget(player, enemies);
+  const itemTarget = getAiBestItemTarget(player);
   const directions = [
     { dx: 0, dy: -1 },
     { dx: 0, dy: 1 },
@@ -1018,18 +1148,23 @@ function getAiMove(player) {
     return !getPlayerAt(nextX, nextY);
   });
   if (!validMoves.length) return null;
-  if (!target) {
-    return validMoves[roll(0, validMoves.length - 1)];
-  }
-  const bestMoves = validMoves
-    .map((move) => {
-      const distance = Math.abs(target.x - (player.x + move.dx))
-        + Math.abs(target.y - (player.y + move.dy));
-      return { move, distance };
-    })
-    .sort((a, b) => a.distance - b.distance);
-  const shortest = bestMoves[0].distance;
-  const candidates = bestMoves.filter((entry) => entry.distance === shortest);
+  const scoredMoves = validMoves.map((move) => {
+    const nextX = player.x + move.dx;
+    const nextY = player.y + move.dy;
+    const enemyDistance = target
+      ? Math.abs(target.x - nextX) + Math.abs(target.y - nextY)
+      : null;
+    const itemDistance = itemTarget
+      ? Math.abs(itemTarget.item.x - nextX) + Math.abs(itemTarget.item.y - nextY)
+      : null;
+    let score = 0;
+    if (enemyDistance !== null) score -= enemyDistance;
+    if (itemTarget) score += itemTarget.value * 2 - itemDistance;
+    return { move, score };
+  });
+  scoredMoves.sort((a, b) => b.score - a.score);
+  const bestScore = scoredMoves[0].score;
+  const candidates = scoredMoves.filter((entry) => entry.score === bestScore);
   return candidates[roll(0, candidates.length - 1)].move;
 }
 
@@ -1039,6 +1174,20 @@ async function runAiTurn(turnId) {
   let acted = false;
   while (isAiTurn(turnId)) {
     const player = getCurrentPlayer();
+    const criticalLimb = ["leftArmArmor", "rightArmArmor", "leftLegArmor", "rightLegArmor"]
+      .some((key) => player[key] < 0);
+    if ((player.health <= 1 || criticalLimb)
+      && player.inventory.some((item) => item.category === "Medkit")) {
+      useMedkit(true);
+      acted = true;
+      if (!(await waitAiDelay(turnId))) return;
+      continue;
+    }
+    if (tryAiGroundItemAction(player)) {
+      acted = true;
+      if (!(await waitAiDelay(turnId))) return;
+      continue;
+    }
     const attack = getAiAttackOption(player);
     if (attack) {
       executeAttack(attack.slot, attack.target.x, attack.target.y);
@@ -1735,8 +1884,8 @@ function dropWeaponFromSlot(player, slot, x, y) {
   return name;
 }
 
-function useMedkit() {
-  if (isCurrentPlayerAI()) return;
+function useMedkit(allowAi = false) {
+  if (isCurrentPlayerAI() && !allowAi) return;
   const player = getCurrentPlayer();
   const medkitIndex = player.inventory.findIndex((item) => item.category === "Medkit");
   if (medkitIndex === -1) {
@@ -1769,8 +1918,8 @@ function advanceTurn() {
   }
 }
 
-function handleGroundItemAction(itemId, action, slot) {
-  if (isCurrentPlayerAI()) return;
+function handleGroundItemAction(itemId, action, slot, allowAi = false) {
+  if (isCurrentPlayerAI() && !allowAi) return;
   const itemIndex = state.items.findIndex((item) => item.id === itemId);
   if (itemIndex === -1) return;
   const item = state.items[itemIndex];
