@@ -13,34 +13,41 @@
       <div class="start-hero">
         <div class="start-hero__title">
           <h1>CellShot</h1>
-          <p class="subtitle">Тактический пошаговый grid-шутер для горячего кресла</p>
+          <p class="subtitle" data-i18n="start.subtitle">Тактический пошаговый grid-шутер для горячего кресла</p>
+        </div>
+        <div class="start-hero__actions">
+          <div class="language-toggle" role="group" aria-label="Language">
+            <button type="button" data-lang="ru">Русский</button>
+            <button type="button" data-lang="en">English</button>
+          </div>
+          <button type="button" class="ghost" data-rules-button data-i18n="start.rulesButton">Правила и инструкции</button>
         </div>
         <div class="start-hero__tags">
-          <span class="hero-tag">Hot-seat</span>
+          <span class="hero-tag" data-i18n="start.tagHotSeat">Hot-seat</span>
           <span class="hero-tag">20x20</span>
-          <span class="hero-tag">Tactical</span>
+          <span class="hero-tag" data-i18n="start.tagTactical">Tactical</span>
         </div>
       </div>
 
       <div class="start-layout">
         <div class="start-panel map-panel">
-          <h2>Выбор карты</h2>
+          <h2 data-i18n="start.mapTitle">Выбор карты</h2>
           <label>
-            Карта
+            <span data-i18n="start.mapLabel">Карта</span>
             <select id="mapSelect"></select>
           </label>
           <div class="map-preview" id="mapPreview"></div>
           <div class="map-legend">
-            <span><span class="legend-dot wall"></span> Стены</span>
-            <span><span class="legend-dot river"></span> Река</span>
-            <span><span class="legend-dot spawn"></span> Спавн</span>
+            <span><span class="legend-dot wall"></span> <span data-i18n="start.legendWalls">Стены</span></span>
+            <span><span class="legend-dot river"></span> <span data-i18n="start.legendRiver">Река</span></span>
+            <span><span class="legend-dot spawn"></span> <span data-i18n="start.legendSpawn">Спавн</span></span>
           </div>
         </div>
 
         <div class="start-panel setup-panel">
-          <h2>Состав отряда</h2>
+          <h2 data-i18n="start.squadTitle">Состав отряда</h2>
           <label>
-            Количество игроков
+            <span data-i18n="start.playerCountLabel">Количество игроков</span>
             <select id="playerCount">
               <option value="2">2</option>
               <option value="3">3</option>
@@ -48,34 +55,12 @@
             </select>
           </label>
           <div id="playerTypeList" class="player-type-list"></div>
-          <div class="ai-note">Скоро появится режим AI</div>
+          <div class="ai-note" data-i18n="start.aiNote">Скоро появится режим AI</div>
           <label>
-            Частота появления ящиков (N ходов)
+            <span data-i18n="start.crateLabel">Частота появления ящиков (N ходов)</span>
             <input id="crateInterval" type="number" min="1" value="5" />
           </label>
-          <button id="startGame" class="primary">Начать миссию</button>
-        </div>
-
-        <div class="start-panel art-panel">
-          <h2>Командный штаб</h2>
-          <div class="holo-radar">
-            <div class="radar-sweep"></div>
-            <div class="radar-point"></div>
-            <div class="radar-point two"></div>
-            <div class="radar-point three"></div>
-          </div>
-          <div class="holo-card">
-            <h3>Тактический брифинг</h3>
-            <p>Готовьте позиции, захватывайте ящики и держите линию огня.</p>
-            <div class="signal-bars">
-              <span></span><span></span><span></span><span></span>
-            </div>
-          </div>
-          <div class="signal-stack">
-            <div class="signal-line"></div>
-            <div class="signal-line"></div>
-            <div class="signal-line"></div>
-          </div>
+          <button id="startGame" class="primary" data-i18n="start.startButton">Начать миссию</button>
         </div>
       </div>
     </div>
@@ -85,13 +70,18 @@
     <header>
       <div class="title-block">
         <h1>CellShot</h1>
-        <p class="subtitle">Turn-based tactical grid shooter (hot-seat)</p>
+        <p class="subtitle" data-i18n="game.subtitle">Turn-based tactical grid shooter (hot-seat)</p>
       </div>
       <div class="setup game-actions">
-        <button id="newGame">New Game</button>
-        <button id="resetGame">Reset</button>
-        <button id="saveGame">Save</button>
-        <button id="loadGame">Load</button>
+        <button id="newGame" data-i18n="game.newGame">New Game</button>
+        <button id="resetGame" data-i18n="game.reset">Reset</button>
+        <button id="saveGame" data-i18n="game.save">Save</button>
+        <button id="loadGame" data-i18n="game.load">Load</button>
+        <button type="button" class="ghost" data-rules-button data-i18n="game.rulesButton">Rules & instructions</button>
+        <div class="language-toggle" role="group" aria-label="Language">
+          <button type="button" data-lang="ru">Русский</button>
+          <button type="button" data-lang="en">English</button>
+        </div>
       </div>
     </header>
 
@@ -100,21 +90,21 @@
       <div id="boardHeader" class="board-header"></div>
       <div id="grid" class="grid"></div>
       <div class="action-message">
-        <h3>Last action</h3>
+        <h3 data-i18n="game.lastAction">Last action</h3>
         <div id="lastActionMessage" class="action-message-body">—</div>
       </div>
     </section>
 
     <section class="side-panel">
       <div class="status-panel">
-        <h2>Turn Panel</h2>
+        <h2 data-i18n="game.turnPanel">Turn Panel</h2>
         <div id="turnInfo" class="turn-info"></div>
       </div>
 
       <div class="controls">
-        <h2>Controls</h2>
+        <h2 data-i18n="game.controlsTitle">Controls</h2>
         <div class="control-section">
-          <h3>Move</h3>
+          <h3 data-i18n="game.moveTitle">Move</h3>
           <div class="move-pad">
             <span></span>
             <button data-move="up" class="arrow">▲</button>
@@ -128,34 +118,43 @@
           </div>
         </div>
         <div class="action-bar">
-          <button id="endTurn" class="primary">End Turn</button>
-          <button id="useMedkit">Medkit</button>
+          <button id="endTurn" class="primary" data-i18n="game.endTurn">End Turn</button>
+          <button id="useMedkit" data-i18n="game.useMedkit">Medkit</button>
         </div>
       </div>
     </section>
 
     <section class="info-panel">
       <div class="players-panel">
-        <h2>Players</h2>
+        <h2 data-i18n="game.playersTitle">Players</h2>
         <div id="playerSummary" class="players-summary"></div>
       </div>
 
       <div class="items-panel">
-        <h2>GROUND ITEMS</h2>
+        <h2 data-i18n="game.groundItemsTitle">GROUND ITEMS</h2>
         <div id="groundItems"></div>
       </div>
 
       <div class="inventory-panel">
-        <h2>Inventory</h2>
+        <h2 data-i18n="game.inventoryTitle">Inventory</h2>
         <div id="inventory"></div>
       </div>
 
       <div class="log-panel">
-        <h2>Log</h2>
+        <h2 data-i18n="game.logTitle">Log</h2>
         <div id="log"></div>
       </div>
     </section>
     </main>
+  </div>
+
+  <div id="rulesModal" class="modal" aria-hidden="true">
+    <div class="modal__overlay" data-close-modal></div>
+    <div class="modal__content" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <button class="modal__close" type="button" aria-label="Close" data-close-modal>×</button>
+      <h2 id="rulesTitle"></h2>
+      <div id="rulesContent" class="rules-content"></div>
+    </div>
   </div>
 
   <script src="app.js"></script>
