@@ -529,6 +529,12 @@ main {
   border-color: #7f1d1d;
 }
 
+.badge.ai-badge {
+  color: #fde68a;
+  border-color: #a16207;
+  background: #1b1a12;
+}
+
 .turn-layout {
   display: grid;
   grid-template-columns: 140px 1fr 1fr;

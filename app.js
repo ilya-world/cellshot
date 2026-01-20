@@ -1,6 +1,7 @@
 const MAX_LOG = 400;
 const GRID_SIZE = 20;
 const INVENTORY_SIZE = 4;
+const AI_ACTION_DELAY = 1000;
 const WEAPON_CAPACITY = {
   Pistol: 3,
   Shotgun: 2,
@@ -32,7 +33,7 @@ const translations = {
       legendSpawn: "Спавн",
       squadTitle: "Состав отряда",
       playerCountLabel: "Количество игроков",
-      aiNote: "Скоро появится режим AI",
+      aiNote: "Можно выбрать AI для отдельного игрока",
       crateLabel: "Частота появления ящиков (N ходов)",
       startButton: "Начать миссию",
     },
@@ -101,6 +102,7 @@ const translations = {
     },
     ui: {
       playerLabel: "Игрок",
+      aiLabel: "AI",
       slot: "Слот {slot}",
       attack: "Атака",
       reload: "Перезарядка",
@@ -234,7 +236,7 @@ const translations = {
       legendSpawn: "Spawn",
       squadTitle: "Squad setup",
       playerCountLabel: "Player count",
-      aiNote: "AI mode is coming soon",
+      aiNote: "AI can be assigned per player",
       crateLabel: "Crate spawn frequency (N turns)",
       startButton: "Start mission",
     },
@@ -303,6 +305,7 @@ const translations = {
     },
     ui: {
       playerLabel: "Player",
+      aiLabel: "AI",
       slot: "Slot {slot}",
       attack: "Attack",
       reload: "Reload",
@@ -442,6 +445,8 @@ const state = {
   lastActionMessage: null,
   nextItemId: 1,
   language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
+  playerTypeSelections: [],
+  aiTurnId: 0,
 };
 
 const MAZE_LAYOUT = `
@@ -758,6 +763,7 @@ function startNewGame(keepMapSelection = false) {
   state.round = 1;
   state.currentPlayerIndex = 0;
   state.lastActionMessage = null;
+  state.aiTurnId += 1;
 
   if (!keepMapSelection) {
     elements.mapSelect.value = elements.mapSelect.value || "Maze";
@@ -767,7 +773,8 @@ function startNewGame(keepMapSelection = false) {
   state.map = cloneMap(mapLibrary[mapName]);
 
   const count = Number(elements.playerCount.value);
-  state.players = createPlayers(count);
+  const playerTypes = getPlayerTypeSelections(count);
+  state.players = createPlayers(count, playerTypes);
 
   state.seed = Date.now();
   state.rng = mulberry32(state.seed);
@@ -831,8 +838,10 @@ function renderMapPreview() {
 function renderPlayerTypeList() {
   const count = Number(elements.playerCount.value);
   elements.playerTypeList.innerHTML = "";
+  state.playerTypeSelections = state.playerTypeSelections.slice(0, count);
   for (let index = 0; index < count; index += 1) {
     const preset = PLAYER_PRESETS[index];
+    const selection = state.playerTypeSelections[index] || "human";
     const row = document.createElement("div");
     row.className = "player-type-row";
     row.innerHTML = `
@@ -842,10 +851,27 @@ function renderPlayerTypeList() {
       </div>
       <select>
         <option value="human">${t("ui.playerLabel")}</option>
+        <option value="ai">${t("ui.aiLabel")}</option>
       </select>
     `;
+    const select = row.querySelector("select");
+    select.value = selection;
+    select.addEventListener("change", () => {
+      state.playerTypeSelections[index] = select.value;
+    });
     elements.playerTypeList.appendChild(row);
   }
+}
+
+function getPlayerTypeSelections(count) {
+  const selections = [];
+  const selects = elements.playerTypeList.querySelectorAll("select");
+  for (let index = 0; index < count; index += 1) {
+    const value = selects[index]?.value || state.playerTypeSelections[index] || "human";
+    selections.push(value);
+  }
+  state.playerTypeSelections = selections;
+  return selections;
 }
 
 function cloneMap(map) {
@@ -855,13 +881,14 @@ function cloneMap(map) {
   };
 }
 
-function createPlayers(count) {
+function createPlayers(count, playerTypes = []) {
   return Array.from({ length: count }, (_, index) => {
     const preset = PLAYER_PRESETS[index];
     return {
       id: index + 1,
       nameKey: preset.nameKey,
       color: preset.color,
+      isAI: playerTypes[index] === "ai",
       status: "Alive",
       x: 0,
       y: 0,
@@ -922,9 +949,127 @@ function startTurn() {
       spawnCrate();
     }
     logEvent("log.turnStart", { round: state.round, playerId: player.id });
+    scheduleAiTurn();
     return;
   }
   logEvent("log.noActivePlayers");
+}
+
+function scheduleAiTurn() {
+  const player = getCurrentPlayer();
+  if (!player?.isAI) return;
+  state.aiTurnId += 1;
+  runAiTurn(state.aiTurnId);
+}
+
+function isAiTurn(turnId) {
+  return state.aiTurnId === turnId && getCurrentPlayer()?.isAI;
+}
+
+function waitAiDelay(turnId) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(isAiTurn(turnId));
+    }, AI_ACTION_DELAY);
+  });
+}
+
+function getClosestTarget(attacker, targets) {
+  if (!targets.length) return null;
+  return targets.reduce((closest, target) => {
+    const closestDistance = Math.abs(closest.x - attacker.x) + Math.abs(closest.y - attacker.y);
+    const targetDistance = Math.abs(target.x - attacker.x) + Math.abs(target.y - attacker.y);
+    return targetDistance < closestDistance ? target : closest;
+  }, targets[0]);
+}
+
+function getAiAttackOption(player) {
+  if (state.weaponPoints <= 0) return null;
+  for (let slot = 0; slot < player.weapons.length; slot += 1) {
+    const weapon = player.weapons[slot];
+    if (weapon.weaponName === "None") continue;
+    if (WEAPON_CAPACITY[weapon.weaponName] && weapon.activeAmmo <= 0) continue;
+    const targets = getPotentialTargets(player, weapon.weaponName);
+    if (!targets.length) continue;
+    const target = getClosestTarget(player, targets);
+    if (!target) continue;
+    return { slot, target };
+  }
+  return null;
+}
+
+function getAiMove(player) {
+  const enemies = state.players.filter(
+    (target) => target.status === "Alive" && target.id !== player.id
+  );
+  const target = getClosestTarget(player, enemies);
+  const directions = [
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
+  ];
+  const validMoves = directions.filter(({ dx, dy }) => {
+    const nextX = player.x + dx;
+    const nextY = player.y + dy;
+    if (!isWithinBounds(nextX, nextY)) return false;
+    const cellType = getCellType(nextX, nextY);
+    if (cellType === "W" || cellType === "R") return false;
+    return !getPlayerAt(nextX, nextY);
+  });
+  if (!validMoves.length) return null;
+  if (!target) {
+    return validMoves[roll(0, validMoves.length - 1)];
+  }
+  const bestMoves = validMoves
+    .map((move) => {
+      const distance = Math.abs(target.x - (player.x + move.dx))
+        + Math.abs(target.y - (player.y + move.dy));
+      return { move, distance };
+    })
+    .sort((a, b) => a.distance - b.distance);
+  const shortest = bestMoves[0].distance;
+  const candidates = bestMoves.filter((entry) => entry.distance === shortest);
+  return candidates[roll(0, candidates.length - 1)].move;
+}
+
+async function runAiTurn(turnId) {
+  const started = await waitAiDelay(turnId);
+  if (!started) return;
+  let acted = false;
+  while (isAiTurn(turnId)) {
+    const player = getCurrentPlayer();
+    const attack = getAiAttackOption(player);
+    if (attack) {
+      executeAttack(attack.slot, attack.target.x, attack.target.y);
+      acted = true;
+      if (!(await waitAiDelay(turnId))) return;
+      continue;
+    }
+    if (state.weaponPoints > 0) {
+      const reloaded = reloadFirstAvailableWeapon(true);
+      if (reloaded) {
+        acted = true;
+        if (!(await waitAiDelay(turnId))) return;
+        continue;
+      }
+    }
+    if (state.moves > 0) {
+      const move = getAiMove(player);
+      if (move) {
+        attemptMove(move.dx, move.dy);
+        acted = true;
+        if (!(await waitAiDelay(turnId))) return;
+        continue;
+      }
+    }
+    break;
+  }
+  if (!isAiTurn(turnId)) return;
+  if (acted) {
+    if (!(await waitAiDelay(turnId))) return;
+  }
+  endTurn(true);
 }
 
 function updateActionPoints(player) {
@@ -952,6 +1097,7 @@ function calculateWeaponPoints(player) {
 }
 
 function handleMove(direction) {
+  if (isCurrentPlayerAI()) return;
   if (state.attackMode) {
     logEvent("log.cancelTargetMove");
     return;
@@ -968,6 +1114,7 @@ function handleMove(direction) {
 
 function handleHotkeys(event) {
   if (event.repeat) return;
+  if (isCurrentPlayerAI()) return;
   if (elements.rulesModal?.classList.contains("is-visible")) return;
   const activeTag = document.activeElement?.tagName?.toLowerCase();
   if (["input", "select", "textarea"].includes(activeTag)) return;
@@ -1009,6 +1156,7 @@ function handleHotkeys(event) {
 }
 
 function handleTargetHotkey(targetId) {
+  if (isCurrentPlayerAI()) return;
   if (!state.attackMode) return;
   const attacker = getCurrentPlayer();
   const target = state.players.find(
@@ -1212,6 +1360,7 @@ function spawnCrate() {
 }
 
 function enterAttackMode(slot) {
+  if (isCurrentPlayerAI()) return;
   const player = getCurrentPlayer();
   if (player.weapons[slot].weaponName === "None") {
     logEvent("log.noWeaponSlot");
@@ -1230,6 +1379,7 @@ function enterAttackMode(slot) {
 }
 
 function handleCellClick(x, y) {
+  if (isCurrentPlayerAI()) return;
   if (!state.attackMode) return;
   const slot = state.attackMode.slot;
   state.attackMode = null;
@@ -1499,25 +1649,26 @@ function respawnPlayer(player) {
   return true;
 }
 
-function reloadWeapon(slot) {
+function reloadWeapon(slot, allowAi = false) {
+  if (isCurrentPlayerAI() && !allowAi) return false;
   const player = getCurrentPlayer();
   const weapon = player.weapons[slot];
   if (!WEAPON_CAPACITY[weapon.weaponName]) {
     logEvent("log.reloadUnavailable");
-    return;
+    return false;
   }
   if (state.weaponPoints <= 0) {
     logEvent("log.noWeaponPoints");
-    return;
+    return false;
   }
   const maxAmmo = WEAPON_CAPACITY[weapon.weaponName];
   if (weapon.activeAmmo >= maxAmmo) {
     logEvent("log.weaponReloadedFull");
-    return;
+    return false;
   }
   if (weapon.passiveAmmo <= 0) {
     logEvent("log.weaponReloadedNoAmmo");
-    return;
+    return false;
   }
   const needed = maxAmmo - weapon.activeAmmo;
   const toLoad = Math.min(needed, weapon.passiveAmmo);
@@ -1526,9 +1677,11 @@ function reloadWeapon(slot) {
   state.weaponPoints = Math.max(0, state.weaponPoints - 1);
   logEvent("log.weaponReloaded", { weapon: weapon.weaponName, count: toLoad });
   render();
+  return true;
 }
 
-function reloadFirstAvailableWeapon() {
+function reloadFirstAvailableWeapon(allowAi = false) {
+  if (isCurrentPlayerAI() && !allowAi) return false;
   const player = getCurrentPlayer();
   const slot = player.weapons.findIndex((weapon) => {
     const maxAmmo = WEAPON_CAPACITY[weapon.weaponName];
@@ -1537,13 +1690,16 @@ function reloadFirstAvailableWeapon() {
     return weapon.passiveAmmo > 0;
   });
   if (slot === -1) {
-    logEvent("log.noWeaponToReload");
-    return;
+    if (!allowAi) {
+      logEvent("log.noWeaponToReload");
+    }
+    return false;
   }
-  reloadWeapon(slot);
+  return reloadWeapon(slot, allowAi);
 }
 
 function dropWeapon(slot) {
+  if (isCurrentPlayerAI()) return;
   const player = getCurrentPlayer();
   const dropped = dropWeaponFromSlot(player, slot, player.x, player.y);
   if (!dropped) {
@@ -1580,6 +1736,7 @@ function dropWeaponFromSlot(player, slot, x, y) {
 }
 
 function useMedkit() {
+  if (isCurrentPlayerAI()) return;
   const player = getCurrentPlayer();
   const medkitIndex = player.inventory.findIndex((item) => item.category === "Medkit");
   if (medkitIndex === -1) {
@@ -1596,7 +1753,8 @@ function useMedkit() {
   render();
 }
 
-function endTurn() {
+function endTurn(force = false) {
+  if (isCurrentPlayerAI() && !force) return;
   state.attackMode = null;
   advanceTurn();
   startTurn();
@@ -1612,6 +1770,7 @@ function advanceTurn() {
 }
 
 function handleGroundItemAction(itemId, action, slot) {
+  if (isCurrentPlayerAI()) return;
   const itemIndex = state.items.findIndex((item) => item.id === itemId);
   if (itemIndex === -1) return;
   const item = state.items[itemIndex];
@@ -1771,6 +1930,10 @@ function addGroundItem(item, x, y) {
 
 function getCurrentPlayer() {
   return state.players[state.currentPlayerIndex];
+}
+
+function isCurrentPlayerAI() {
+  return Boolean(getCurrentPlayer()?.isAI);
 }
 
 function getPlayerAt(x, y) {
@@ -1943,11 +2106,12 @@ function renderGrid() {
 
 function renderTurnInfo() {
   const player = getCurrentPlayer();
+  const isAi = player.isAI;
   const moveDisplayMax = player.inventory.some((item) => item.category === "Exoskeleton") ? 5 : 3;
   const weaponInfo = player.weapons
     .map((weapon, index) => {
       const canReload = Boolean(WEAPON_CAPACITY[weapon.weaponName]);
-      const disabled = weapon.weaponName === "None" ? "disabled" : "";
+      const disabled = weapon.weaponName === "None" || isAi ? "disabled" : "";
       const weaponLabel = getWeaponLabel(weapon.weaponName);
       return `
       <div class="weapon-card">
@@ -2018,6 +2182,7 @@ function renderBoardHeader() {
     <div class="badge player-badge" style="--player-color: ${player.color}">
       ${getPlayerLabel(player)}
     </div>
+    ${player.isAI ? `<div class="badge ai-badge">${t("ui.aiLabel")}</div>` : ""}
   `;
 }
 
@@ -2065,6 +2230,7 @@ function renderPlayerSummary() {
             <div class="player-summary-header">
               <span class="player-color-dot" style="--player-color: ${player.color}"></span>
               <span>${getPlayerLabel(player)}</span>
+              ${player.isAI ? `<span class="badge ai-badge">${t("ui.aiLabel")}</span>` : ""}
               <span class="muted">${t("status." + player.status)}</span>
             </div>
             <div class="hp-row">${renderHearts(player.health)}</div>
@@ -2086,6 +2252,9 @@ function renderControls() {
   const player = getCurrentPlayer();
   const hasMedkit = player.inventory.some((item) => item.category === "Medkit");
   elements.useMedkit.style.display = hasMedkit ? "inline-flex" : "none";
+  const isAi = player.isAI;
+  elements.useMedkit.disabled = isAi;
+  elements.endTurn.disabled = isAi;
   const endTurnIsDanger = state.moves === 0 && state.weaponPoints === 0;
   elements.endTurn.classList.toggle("danger", endTurnIsDanger);
 }
@@ -2286,11 +2455,13 @@ function loadGame() {
   const data = JSON.parse(payload);
   Object.assign(state, data);
   state.rng = mulberry32(state.seed);
+  state.aiTurnId += 1;
   state.players.forEach((player, index) => {
     if (!player.nameKey) {
       player.nameKey = player.name || PLAYER_PRESETS[index]?.nameKey || "Red";
     }
   });
+  state.playerTypeSelections = state.players.map((player) => (player.isAI ? "ai" : "human"));
   logEvent("log.loadDone");
   elements.mapSelect.value = state.mapName;
   elements.crateInterval.value = state.crateInterval || 5;
