@@ -89,9 +89,11 @@ const mapLibrary = {
 
 const elements = {
   grid: document.getElementById("grid"),
+  startScreen: document.getElementById("startScreen"),
+  startGame: document.getElementById("startGame"),
   mapSelect: document.getElementById("mapSelect"),
   playerCount: document.getElementById("playerCount"),
-  seedInput: document.getElementById("seedInput"),
+  playerTypeList: document.getElementById("playerTypeList"),
   crateInterval: document.getElementById("crateInterval"),
   newGame: document.getElementById("newGame"),
   resetGame: document.getElementById("resetGame"),
@@ -106,6 +108,7 @@ const elements = {
   endTurn: document.getElementById("endTurn"),
   useMedkit: document.getElementById("useMedkit"),
   boardHeader: document.getElementById("boardHeader"),
+  mapPreview: document.getElementById("mapPreview"),
 };
 
 function buildFixedMap(name, layout) {
@@ -127,7 +130,10 @@ function init() {
     elements.mapSelect.appendChild(option);
   });
 
-  elements.newGame.addEventListener("click", () => startNewGame());
+  elements.mapSelect.addEventListener("change", () => renderMapPreview());
+  elements.playerCount.addEventListener("change", renderPlayerTypeList);
+  elements.startGame.addEventListener("click", () => startNewGame());
+  elements.newGame.addEventListener("click", showStartScreen);
   elements.resetGame.addEventListener("click", () => startNewGame(true));
   elements.saveGame.addEventListener("click", saveGame);
   elements.loadGame.addEventListener("click", loadGame);
@@ -141,7 +147,10 @@ function init() {
   document.addEventListener("keydown", handleHotkeys);
 
   buildGrid();
-  startNewGame(true);
+  buildMapPreviewGrid();
+  renderMapPreview();
+  renderPlayerTypeList();
+  showStartScreen();
 }
 
 function buildGrid() {
@@ -177,15 +186,83 @@ function startNewGame(keepMapSelection = false) {
   const count = Number(elements.playerCount.value);
   state.players = createPlayers(count);
 
-  const seedValue = elements.seedInput.value ? Number(elements.seedInput.value) : Date.now();
-  state.seed = seedValue;
-  state.rng = mulberry32(seedValue);
+  state.seed = Date.now();
+  state.rng = mulberry32(state.seed);
   state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 5);
 
   assignSpawnPoints();
   startTurn();
-  logEvent(`New game started on ${mapName} with seed ${seedValue}.`);
+  logEvent(`New game started on ${mapName} with seed ${state.seed}.`);
   render();
+  hideStartScreen();
+}
+
+function showStartScreen() {
+  document.body.classList.add("start-mode");
+  if (state.mapName) {
+    elements.mapSelect.value = state.mapName;
+  }
+  renderMapPreview();
+  renderPlayerTypeList();
+}
+
+function hideStartScreen() {
+  document.body.classList.remove("start-mode");
+}
+
+function buildMapPreviewGrid() {
+  if (!elements.mapPreview) return;
+  elements.mapPreview.innerHTML = "";
+  for (let y = 1; y <= GRID_SIZE; y += 1) {
+    for (let x = 1; x <= GRID_SIZE; x += 1) {
+      const cell = document.createElement("div");
+      cell.className = "preview-cell";
+      cell.dataset.x = String(x);
+      cell.dataset.y = String(y);
+      elements.mapPreview.appendChild(cell);
+    }
+  }
+}
+
+function renderMapPreview() {
+  if (!elements.mapPreview) return;
+  const mapName = elements.mapSelect.value || "Maze";
+  const previewCells = elements.mapPreview.querySelectorAll(".preview-cell");
+  previewCells.forEach((cell) => {
+    cell.className = "preview-cell";
+  });
+  const map = mapLibrary[mapName];
+  if (!map) return;
+  map.grid.forEach((row, y) => {
+    row.forEach((cellType, x) => {
+      const index = y * GRID_SIZE + x;
+      const cell = previewCells[index];
+      if (!cell) return;
+      if (cellType === "W") cell.classList.add("wall");
+      if (cellType === "R") cell.classList.add("river");
+      if (cellType === "S") cell.classList.add("spawn");
+    });
+  });
+}
+
+function renderPlayerTypeList() {
+  const count = Number(elements.playerCount.value);
+  elements.playerTypeList.innerHTML = "";
+  for (let index = 0; index < count; index += 1) {
+    const preset = PLAYER_PRESETS[index];
+    const row = document.createElement("div");
+    row.className = "player-type-row";
+    row.innerHTML = `
+      <div class="player-chip">
+        <span class="dot" style="--player-color: ${preset.color}"></span>
+        ${preset.name} #${index + 1}
+      </div>
+      <select>
+        <option value="human">Игрок</option>
+      </select>
+    `;
+    elements.playerTypeList.appendChild(row);
+  }
 }
 
 function cloneMap(map) {
@@ -1614,7 +1691,10 @@ function loadGame() {
   logEvent("Game loaded.");
   elements.mapSelect.value = state.mapName;
   elements.crateInterval.value = state.crateInterval || 5;
+  elements.playerCount.value = String(state.players.length);
+  renderPlayerTypeList();
   render();
+  hideStartScreen();
 }
 
 function stripItem(item) {
