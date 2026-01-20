@@ -983,19 +983,68 @@ function getClosestTarget(attacker, targets) {
   }, targets[0]);
 }
 
+function getTargetDurability(target) {
+  const clampArmor = (value) => Math.max(0, value);
+  const vitalArmor = clampArmor(target.headArmor) + clampArmor(target.bodyArmor);
+  const limbArmor = clampArmor(target.leftArmArmor)
+    + clampArmor(target.rightArmArmor)
+    + clampArmor(target.leftLegArmor)
+    + clampArmor(target.rightLegArmor);
+  return target.health + vitalArmor * 1.5 + limbArmor * 0.5;
+}
+
+function getWeaponShots(weaponName) {
+  return ["Shotgun", "Sword"].includes(weaponName) ? 2 : 1;
+}
+
+function getWeaponDamageFactor(weaponName) {
+  if (weaponName === "Bazooka") return 2.5;
+  if (weaponName === "Shotgun") return 1.1;
+  return 1;
+}
+
+function getAmmoRatio(weapon) {
+  const capacity = WEAPON_CAPACITY[weapon.weaponName];
+  if (!capacity) return 1;
+  return Math.min(1, weapon.activeAmmo / capacity);
+}
+
+function scoreAiAttack(attacker, weapon, target) {
+  const distance = Math.abs(target.x - attacker.x) + Math.abs(target.y - attacker.y);
+  const range = getWeaponRange(weapon.weaponName);
+  if (distance > range) return -Infinity;
+  if (range === 1 && distance !== 1) return -Infinity;
+  if (range > 1 && !hasLineOfSight(attacker.x, attacker.y, target.x, target.y)) return -Infinity;
+
+  const distancePenalty = attacker.leftArmArmor < 0 || attacker.rightArmArmor < 0 ? 2 : 0;
+  const hitChance = Math.max(0, 7 - (distance + distancePenalty)) / 6;
+  const shots = getWeaponShots(weapon.weaponName);
+  const expectedDamage = shots * hitChance * getWeaponDamageFactor(weapon.weaponName);
+  const durability = getTargetDurability(target);
+  const vulnerability = 1 / (1 + durability);
+  const distanceWeight = range > 1 ? (range + 1 - distance) / range : 1;
+  return expectedDamage * vulnerability * distanceWeight * getAmmoRatio(weapon);
+}
+
 function getAiAttackOption(player) {
   if (state.weaponPoints <= 0) return null;
+  let bestOption = null;
+  let bestScore = -Infinity;
   for (let slot = 0; slot < player.weapons.length; slot += 1) {
     const weapon = player.weapons[slot];
     if (weapon.weaponName === "None") continue;
     if (WEAPON_CAPACITY[weapon.weaponName] && weapon.activeAmmo <= 0) continue;
     const targets = getPotentialTargets(player, weapon.weaponName);
     if (!targets.length) continue;
-    const target = getClosestTarget(player, targets);
-    if (!target) continue;
-    return { slot, target };
+    targets.forEach((target) => {
+      const score = scoreAiAttack(player, weapon, target);
+      if (score > bestScore) {
+        bestScore = score;
+        bestOption = { slot, target };
+      }
+    });
   }
-  return null;
+  return bestOption;
 }
 
 function getAiItemValue(item, player) {
