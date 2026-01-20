@@ -7,40 +7,95 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <div class="title-block">
-      <h1>CellShot</h1>
-      <p class="subtitle">Turn-based tactical grid shooter (hot-seat)</p>
-    </div>
-    <div class="setup">
-      <label>
-        Map
-        <select id="mapSelect"></select>
-      </label>
-      <label>
-        Players
-        <select id="playerCount">
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-        </select>
-      </label>
-      <label>
-        Seed
-        <input id="seedInput" type="number" placeholder="Optional" />
-      </label>
-      <label>
-        Crates every N turns
-        <input id="crateInterval" type="number" min="1" value="5" />
-      </label>
-      <button id="newGame">New Game</button>
-      <button id="resetGame">Reset</button>
-      <button id="saveGame">Save</button>
-      <button id="loadGame">Load</button>
-    </div>
-  </header>
+  <section id="startScreen" class="start-screen">
+    <div class="start-screen__glow"></div>
+    <div class="start-screen__content">
+      <div class="start-hero">
+        <div class="start-hero__title">
+          <h1>CellShot</h1>
+          <p class="subtitle">Тактический пошаговый grid-шутер для горячего кресла</p>
+        </div>
+        <div class="start-hero__tags">
+          <span class="hero-tag">Hot-seat</span>
+          <span class="hero-tag">20x20</span>
+          <span class="hero-tag">Tactical</span>
+        </div>
+      </div>
 
-  <main>
+      <div class="start-layout">
+        <div class="start-panel map-panel">
+          <h2>Выбор карты</h2>
+          <label>
+            Карта
+            <select id="mapSelect"></select>
+          </label>
+          <div class="map-preview" id="mapPreview"></div>
+          <div class="map-legend">
+            <span><span class="legend-dot wall"></span> Стены</span>
+            <span><span class="legend-dot river"></span> Река</span>
+            <span><span class="legend-dot spawn"></span> Спавн</span>
+          </div>
+        </div>
+
+        <div class="start-panel setup-panel">
+          <h2>Состав отряда</h2>
+          <label>
+            Количество игроков
+            <select id="playerCount">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <div id="playerTypeList" class="player-type-list"></div>
+          <div class="ai-note">Скоро появится режим AI</div>
+          <label>
+            Частота появления ящиков (N ходов)
+            <input id="crateInterval" type="number" min="1" value="5" />
+          </label>
+          <button id="startGame" class="primary">Начать миссию</button>
+        </div>
+
+        <div class="start-panel art-panel">
+          <h2>Командный штаб</h2>
+          <div class="holo-radar">
+            <div class="radar-sweep"></div>
+            <div class="radar-point"></div>
+            <div class="radar-point two"></div>
+            <div class="radar-point three"></div>
+          </div>
+          <div class="holo-card">
+            <h3>Тактический брифинг</h3>
+            <p>Готовьте позиции, захватывайте ящики и держите линию огня.</p>
+            <div class="signal-bars">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="signal-stack">
+            <div class="signal-line"></div>
+            <div class="signal-line"></div>
+            <div class="signal-line"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="gameShell" class="game-shell">
+    <header>
+      <div class="title-block">
+        <h1>CellShot</h1>
+        <p class="subtitle">Turn-based tactical grid shooter (hot-seat)</p>
+      </div>
+      <div class="setup game-actions">
+        <button id="newGame">New Game</button>
+        <button id="resetGame">Reset</button>
+        <button id="saveGame">Save</button>
+        <button id="loadGame">Load</button>
+      </div>
+    </header>
+
+    <main>
     <section class="board-section">
       <div id="boardHeader" class="board-header"></div>
       <div id="grid" class="grid"></div>
@@ -100,7 +155,8 @@
         <div id="log"></div>
       </div>
     </section>
-  </main>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>
