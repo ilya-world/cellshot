@@ -144,11 +144,34 @@ const translations = {
           ],
         },
         {
+          title: "Части тела и травмы",
+          items: [
+            "Голова: броня поглощает попадание, при значении ниже 0 — мгновенная смерть.",
+            "Тело: сначала тратится броня, затем здоровье; при 0 здоровья игрок погибает.",
+            "Руки: повреждение даёт штраф к попаданию, обе повреждённые руки — нельзя атаковать.",
+            "Ноги: одна повреждённая нога оставляет 1 ход, обе — 0 ходов.",
+            "Аптечка лечит здоровье и восстанавливает повреждённые конечности.",
+          ],
+        },
+        {
           title: "Инвентарь и лут",
           items: [
             "Подбирайте предметы в инвентарь (до 4).",
             "Броню можно экипировать прямо с земли.",
             "Экипированное оружие заменяет слот A/B.",
+          ],
+        },
+        {
+          title: "Что бывает в ящиках",
+          items: [
+            "Аптечка — полностью восстанавливает здоровье и конечности.",
+            "Набор патронов — патроны для пистолета и дробовика.",
+            "Дробовик с патронами — оружие с двумя выстрелами за атаку.",
+            "Полный комплект брони (+1) — шлем, бронежилет и броня конечностей.",
+            "Броня +3 на случайную часть тела — усиливает выбранную часть.",
+            "Меч — оружие ближнего боя на 2 удара.",
+            "Экзоскелет — +2 к числу ходов в каждом раунде.",
+            "Базука с боекомплектом — мощный выстрел с уроном по соседним частям.",
           ],
         },
       ],
@@ -347,11 +370,34 @@ const translations = {
           ],
         },
         {
+          title: "Body parts & injuries",
+          items: [
+            "Head: helmet absorbs hits; if it drops below 0, the target dies instantly.",
+            "Body: armor absorbs first, then health; 0 health means death.",
+            "Arms: damaged arms add an accuracy penalty; both damaged arms = no attacks.",
+            "Legs: one damaged leg leaves 1 move, both leave 0 moves.",
+            "Medkits restore health and repair damaged limbs.",
+          ],
+        },
+        {
           title: "Inventory & loot",
           items: [
             "Pick up items into your inventory (up to 4).",
             "Armor can be equipped directly from the ground.",
             "Equipped weapons replace slot A/B.",
+          ],
+        },
+        {
+          title: "What's inside crates",
+          items: [
+            "Medkit — fully restores health and damaged limbs.",
+            "Ammo pack — pistol and shotgun ammo.",
+            "Shotgun kit — shotgun with extra ammo (two shots per attack).",
+            "Full armor (+1) — helmet, body armor, and limb armor.",
+            "+3 armor for a random body part — boosts that part.",
+            "Sword — melee weapon with 2 strikes.",
+            "Exoskeleton — +2 moves each round.",
+            "Bazooka kit — heavy shot with splash damage to adjacent parts.",
           ],
         },
       ],
@@ -441,7 +487,7 @@ const state = {
   log: [],
   seed: null,
   rng: null,
-  crateInterval: 5,
+  crateInterval: 3,
   lastActionMessage: null,
   nextItemId: 1,
   language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
@@ -778,7 +824,7 @@ function startNewGame(keepMapSelection = false) {
 
   state.seed = Date.now();
   state.rng = mulberry32(state.seed);
-  state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 5);
+  state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 3);
 
   assignSpawnPoints();
   startTurn();
@@ -2325,7 +2371,6 @@ function renderGrid() {
       .map((item) => `${item.x},${item.y}`)
   );
   itemCells.forEach((key) => {
-    if (occupiedByPlayer.has(key)) return;
     const [x, y] = key.split(",").map(Number);
     const cell = getCellElement(x, y);
     if (cell) {
@@ -2728,7 +2773,7 @@ function loadGame() {
   state.playerTypeSelections = state.players.map((player) => (player.isAI ? "ai" : "human"));
   logEvent("log.loadDone");
   elements.mapSelect.value = state.mapName;
-  elements.crateInterval.value = state.crateInterval || 5;
+  elements.crateInterval.value = state.crateInterval || 3;
   elements.playerCount.value = String(state.players.length);
   setLanguage(state.language);
   hideStartScreen();
