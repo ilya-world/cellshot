@@ -12,11 +12,418 @@ const PASSIVE_LIMIT = {
   Bazooka: 1,
 };
 const PLAYER_PRESETS = [
-  { name: "Red", color: "#e55353" },
-  { name: "Green", color: "#3fbf7f" },
-  { name: "Blue", color: "#3b82f6" },
-  { name: "Yellow", color: "#f5c542" },
+  { nameKey: "Red", color: "#e55353" },
+  { nameKey: "Green", color: "#3fbf7f" },
+  { nameKey: "Blue", color: "#3b82f6" },
+  { nameKey: "Yellow", color: "#f5c542" },
 ];
+const LANGUAGE_STORAGE_KEY = "cellshot-lang";
+const translations = {
+  ru: {
+    start: {
+      subtitle: "Тактический пошаговый grid-шутер для горячего кресла",
+      tagHotSeat: "Hot-seat",
+      tagTactical: "Тактика",
+      rulesButton: "Правила и инструкции",
+      mapTitle: "Выбор карты",
+      mapLabel: "Карта",
+      legendWalls: "Стены",
+      legendRiver: "Река",
+      legendSpawn: "Спавн",
+      squadTitle: "Состав отряда",
+      playerCountLabel: "Количество игроков",
+      aiNote: "Скоро появится режим AI",
+      crateLabel: "Частота появления ящиков (N ходов)",
+      startButton: "Начать миссию",
+    },
+    game: {
+      subtitle: "Тактический пошаговый grid-шутер (hot-seat)",
+      newGame: "Новая игра",
+      reset: "Сброс",
+      save: "Сохранить",
+      load: "Загрузить",
+      rulesButton: "Правила и инструкции",
+      lastAction: "Последние действия",
+      turnPanel: "Панель хода",
+      controlsTitle: "Управление",
+      moveTitle: "Движение",
+      endTurn: "Закончить ход",
+      useMedkit: "Аптечка",
+      playersTitle: "Игроки",
+      groundItemsTitle: "ПРЕДМЕТЫ НА ЗЕМЛЕ",
+      inventoryTitle: "Инвентарь",
+      logTitle: "Журнал",
+    },
+    status: {
+      Alive: "В строю",
+      Dead: "Павший",
+    },
+    maps: {
+      Maze: "Лабиринт",
+      Riverside: "Речная долина",
+    },
+    players: {
+      Red: "Красный",
+      Green: "Зеленый",
+      Blue: "Синий",
+      Yellow: "Желтый",
+    },
+    weapons: {
+      Pistol: "Пистолет",
+      Shotgun: "Дробовик",
+      Bazooka: "Базука",
+      Knife: "Нож",
+      Sword: "Меч",
+      None: "Нет",
+    },
+    armorParts: {
+      Head: "Голова",
+      Body: "Тело",
+      "Left Arm": "Левая рука",
+      "Right Arm": "Правая рука",
+      "Left Leg": "Левая нога",
+      "Right Leg": "Правая нога",
+    },
+    armorItems: {
+      Head: "Шлем",
+      Body: "Бронежилет",
+      "Left Arm": "Броня левой руки",
+      "Right Arm": "Броня правой руки",
+      "Left Leg": "Броня левой ноги",
+      "Right Leg": "Броня правой ноги",
+    },
+    items: {
+      medkit: "Аптечка",
+      exoskeleton: "Экзоскелет",
+      supplyCrate: "Ящик снабжения",
+      ammo: "Патроны {weapon} ({count})",
+      armorValue: "{part} (+{value})",
+    },
+    ui: {
+      playerLabel: "Игрок",
+      slot: "Слот {slot}",
+      attack: "Атака",
+      reload: "Перезарядка",
+      drop: "Выбросить",
+      moves: "Ходы",
+      weaponPoints: "Оружие",
+      frags: "Фраги",
+      deaths: "Смерти",
+      round: "Раунд {round}",
+      movePrompt: "Ходы",
+      noItemsHere: "Здесь нет предметов.",
+      inventoryEmpty: "Инвентарь пуст.",
+      equip: "Экипировать",
+      equipA: "Экип. A",
+      equipB: "Экип. B",
+      take: "Взять",
+      destroy: "Уничтожить",
+      dropItem: "Выбросить",
+      slotWeapon: "Слот {slot}: {weapon}",
+      statusBadge: "{status}",
+    },
+    rules: {
+      title: "Правила и инструкции",
+      intro: "Короткая шпаргалка по основным механикам и горячим клавишам.",
+      sections: [
+        {
+          title: "Цель матча",
+          items: [
+            "Оставайтесь последним живым отрядом на поле.",
+            "Ящики дают оружие, броню и расходники.",
+          ],
+        },
+        {
+          title: "Ход игрока",
+          items: [
+            "Тратьте очки хода на перемещение.",
+            "Очки оружия тратятся на атаки и перезарядку.",
+            "Лечение аптечкой восстанавливает здоровье и конечности.",
+          ],
+        },
+        {
+          title: "Инвентарь и лут",
+          items: [
+            "Подбирайте предметы в инвентарь (до 4).",
+            "Броню можно экипировать прямо с земли.",
+            "Экипированное оружие заменяет слот A/B.",
+          ],
+        },
+      ],
+      hotkeysTitle: "Горячие клавиши",
+      hotkeys: [
+        { key: "W/A/S/D или стрелки", action: "Перемещение" },
+        { key: "1 / 2", action: "Атака оружием в слоте" },
+        { key: "R", action: "Перезарядка доступного оружия" },
+        { key: "E / Enter", action: "Закончить ход" },
+        { key: "1-9 (в режиме атаки)", action: "Выбор цели по номеру игрока" },
+      ],
+    },
+    log: {
+      newGame: "Новая игра на карте {map}, seed {seed}.",
+      turnStart: "Ход {round}, игрок {player}.",
+      noActivePlayers: "Нет активных игроков для хода.",
+      respawnSkip: "{player} возродился и пропускает ход.",
+      respawnFail: "{player} не может возродиться и пропускает ход.",
+      cancelTargetMove: "Сначала отмените выбор цели.",
+      targetUnavailable: "Цель недоступна.",
+      targetSelf: "Нельзя выбрать себя в качестве цели.",
+      noMovePoints: "Очки хода закончились.",
+      moveOutside: "Нельзя выйти за пределы карты.",
+      obstacleBlock: "Препятствие на пути.",
+      cellOccupied: "Клетка занята другим игроком.",
+      crateOpened: "Ящик открыт.",
+      crateMedkit: "В ящике аптечка.",
+      crateAmmoPack: "В ящике набор патронов.",
+      crateShotgunKit: "В ящике дробовик с патронами.",
+      crateFullArmor: "В ящике полный комплект брони (+1).",
+      crateArmorPlus: "В ящике броня +3 для {part}.",
+      crateSword: "В ящике меч.",
+      crateExoskeleton: "В ящике экзоскелет.",
+      crateBazooka: "В ящике базука с боекомплектом.",
+      supplyCrateSpawned: "Появился ящик снабжения.",
+      noWeaponSlot: "В этом слоте нет оружия.",
+      noWeaponPoints: "Очки оружия закончились.",
+      noArms: "Нельзя стрелять без рук.",
+      targetTooFar: "Цель слишком далеко.",
+      lineOfSightBlocked: "Линия огня перекрыта стеной.",
+      outOfAmmo: "Патроны закончились.",
+      noTarget: "В этой клетке нет цели.",
+      shotHit: "Выстрел {shot}: попадание (бросок {roll}), {location}.",
+      shotMiss: "Выстрел {shot}: промах (бросок {roll}).",
+      locationRoll: "бросок {bodyRoll} → {part}",
+      locationRollWithPart: "бросок {bodyRoll}, доп. {partRoll} → {part}",
+      killedReport: "{target} погиб (попадание в {part}).",
+      attackReport: "{attacker} атакует {target}: {details}",
+      dropWeapon: "{weapon} выброшен.",
+      dropWeaponSlot: "{weapon} выброшен из слота {slot}.",
+      nothingToDrop: "Нечего выбрасывать.",
+      weaponEquipped: "{weapon} экипирован в слот {slot}.",
+      ammoEquipped: "Патроны экипированы в слот {slot}.",
+      ammoMismatch: "Эти патроны не подходят к оружию.",
+      noAmmoSpace: "Нет места для патронов.",
+      armorEquipped: "{part} экипирована.",
+      armorDamaged: "Нельзя надеть на поврежденную часть.",
+      inventoryFull: "Инвентарь заполнен.",
+      itemAdded: "Предмет добавлен в инвентарь.",
+      inventoryItemDropped: "Предмет выброшен из инвентаря.",
+      itemDestroyed: "Предмет уничтожен.",
+      weaponReloaded: "{weapon} перезаряжен на {count}.",
+      weaponReloadedFull: "Оружие уже полное.",
+      weaponReloadedNoAmmo: "Нет запасных патронов.",
+      reloadUnavailable: "Это оружие нельзя перезарядить.",
+      noWeaponToReload: "Нет оружия, доступного для перезарядки.",
+      medkitMissing: "В инвентаре нет аптечки.",
+      medkitUsed: "Аптечка использована.",
+      saveDone: "Игра сохранена в локальное хранилище.",
+      noSave: "Сохранение не найдено.",
+      loadDone: "Игра загружена.",
+      itemCannotEquip: "Предмет нельзя экипировать.",
+    },
+  },
+  en: {
+    start: {
+      subtitle: "Turn-based tactical grid shooter for hot-seat play",
+      tagHotSeat: "Hot-seat",
+      tagTactical: "Tactical",
+      rulesButton: "Rules & instructions",
+      mapTitle: "Map selection",
+      mapLabel: "Map",
+      legendWalls: "Walls",
+      legendRiver: "River",
+      legendSpawn: "Spawn",
+      squadTitle: "Squad setup",
+      playerCountLabel: "Player count",
+      aiNote: "AI mode is coming soon",
+      crateLabel: "Crate spawn frequency (N turns)",
+      startButton: "Start mission",
+    },
+    game: {
+      subtitle: "Turn-based tactical grid shooter (hot-seat)",
+      newGame: "New game",
+      reset: "Reset",
+      save: "Save",
+      load: "Load",
+      rulesButton: "Rules & instructions",
+      lastAction: "Last action",
+      turnPanel: "Turn panel",
+      controlsTitle: "Controls",
+      moveTitle: "Move",
+      endTurn: "End turn",
+      useMedkit: "Medkit",
+      playersTitle: "Players",
+      groundItemsTitle: "GROUND ITEMS",
+      inventoryTitle: "Inventory",
+      logTitle: "Log",
+    },
+    status: {
+      Alive: "Alive",
+      Dead: "Dead",
+    },
+    maps: {
+      Maze: "Maze",
+      Riverside: "Riverside",
+    },
+    players: {
+      Red: "Red",
+      Green: "Green",
+      Blue: "Blue",
+      Yellow: "Yellow",
+    },
+    weapons: {
+      Pistol: "Pistol",
+      Shotgun: "Shotgun",
+      Bazooka: "Bazooka",
+      Knife: "Knife",
+      Sword: "Sword",
+      None: "None",
+    },
+    armorParts: {
+      Head: "Head",
+      Body: "Body",
+      "Left Arm": "Left arm",
+      "Right Arm": "Right arm",
+      "Left Leg": "Left leg",
+      "Right Leg": "Right leg",
+    },
+    armorItems: {
+      Head: "Helmet",
+      Body: "Body armor",
+      "Left Arm": "Left arm armor",
+      "Right Arm": "Right arm armor",
+      "Left Leg": "Left leg armor",
+      "Right Leg": "Right leg armor",
+    },
+    items: {
+      medkit: "Medkit",
+      exoskeleton: "Exoskeleton",
+      supplyCrate: "Supply crate",
+      ammo: "{weapon} ammo ({count})",
+      armorValue: "{part} armor (+{value})",
+    },
+    ui: {
+      playerLabel: "Player",
+      slot: "Slot {slot}",
+      attack: "Attack",
+      reload: "Reload",
+      drop: "Drop",
+      moves: "Moves",
+      weaponPoints: "Weapon",
+      frags: "Frags",
+      deaths: "Deaths",
+      round: "Round {round}",
+      movePrompt: "Moves",
+      noItemsHere: "No items here.",
+      inventoryEmpty: "Inventory is empty.",
+      equip: "Equip",
+      equipA: "Equip A",
+      equipB: "Equip B",
+      take: "Take",
+      destroy: "Destroy",
+      dropItem: "Drop",
+      slotWeapon: "Slot {slot}: {weapon}",
+      statusBadge: "{status}",
+    },
+    rules: {
+      title: "Rules & instructions",
+      intro: "A quick cheat sheet for core mechanics and hotkeys.",
+      sections: [
+        {
+          title: "Match goal",
+          items: [
+            "Be the last squad standing.",
+            "Crates supply weapons, armor, and consumables.",
+          ],
+        },
+        {
+          title: "Turn flow",
+          items: [
+            "Spend move points to move.",
+            "Weapon points are spent on attacks and reloads.",
+            "Medkits restore health and damaged limbs.",
+          ],
+        },
+        {
+          title: "Inventory & loot",
+          items: [
+            "Pick up items into your inventory (up to 4).",
+            "Armor can be equipped directly from the ground.",
+            "Equipped weapons replace slot A/B.",
+          ],
+        },
+      ],
+      hotkeysTitle: "Hotkeys",
+      hotkeys: [
+        { key: "W/A/S/D or arrows", action: "Move" },
+        { key: "1 / 2", action: "Attack with slot weapon" },
+        { key: "R", action: "Reload the first available weapon" },
+        { key: "E / Enter", action: "End turn" },
+        { key: "1-9 (attack mode)", action: "Target player number" },
+      ],
+    },
+    log: {
+      newGame: "New game on {map}, seed {seed}.",
+      turnStart: "Turn {round}, player {player}.",
+      noActivePlayers: "No active players to take a turn.",
+      respawnSkip: "{player} respawned and skips the turn.",
+      respawnFail: "{player} cannot respawn and skips the turn.",
+      cancelTargetMove: "Cancel target selection before moving.",
+      targetUnavailable: "Target is not available.",
+      targetSelf: "Cannot target yourself.",
+      noMovePoints: "No move points left.",
+      moveOutside: "Cannot move outside map.",
+      obstacleBlock: "Blocked by obstacle.",
+      cellOccupied: "Another player occupies that cell.",
+      crateOpened: "Crate opened.",
+      crateMedkit: "Crate contains a medkit.",
+      crateAmmoPack: "Crate contains ammo pack.",
+      crateShotgunKit: "Crate contains a shotgun kit.",
+      crateFullArmor: "Crate contains full armor (+1).",
+      crateArmorPlus: "Crate contains +3 armor for {part}.",
+      crateSword: "Crate contains a sword.",
+      crateExoskeleton: "Crate contains an exoskeleton.",
+      crateBazooka: "Crate contains a bazooka kit.",
+      supplyCrateSpawned: "Supply crate spawned.",
+      noWeaponSlot: "No weapon in that slot.",
+      noWeaponPoints: "No weapon points left.",
+      noArms: "You have no usable arms.",
+      targetTooFar: "Target is too far.",
+      lineOfSightBlocked: "Line of sight blocked by wall.",
+      outOfAmmo: "Out of ammo.",
+      noTarget: "No target on that cell.",
+      shotHit: "Shot {shot}: hit (roll {roll}), {location}.",
+      shotMiss: "Shot {shot}: missed (roll {roll}).",
+      locationRoll: "location roll {bodyRoll} → {part}",
+      locationRollWithPart: "location roll {bodyRoll}, part roll {partRoll} → {part}",
+      killedReport: "{target} died (hit {part}).",
+      attackReport: "{attacker} attacked {target}: {details}",
+      dropWeapon: "{weapon} dropped.",
+      dropWeaponSlot: "{weapon} dropped from slot {slot}.",
+      nothingToDrop: "Nothing to drop.",
+      weaponEquipped: "{weapon} equipped in slot {slot}.",
+      ammoEquipped: "Ammo equipped to slot {slot}.",
+      ammoMismatch: "This ammo doesn't fit your gun.",
+      noAmmoSpace: "No space for more ammo.",
+      armorEquipped: "{part} armor equipped.",
+      armorDamaged: "You can't wear it on damaged body part.",
+      inventoryFull: "Inventory is full.",
+      itemAdded: "Item added to inventory.",
+      inventoryItemDropped: "Inventory item dropped.",
+      itemDestroyed: "Item destroyed.",
+      weaponReloaded: "Reloaded {weapon} by {count}.",
+      weaponReloadedFull: "Weapon already full.",
+      weaponReloadedNoAmmo: "No spare ammo.",
+      reloadUnavailable: "This weapon cannot be reloaded.",
+      noWeaponToReload: "No weapon available to reload.",
+      medkitMissing: "No medkit in inventory.",
+      medkitUsed: "Medkit was used.",
+      saveDone: "Game saved to local storage.",
+      noSave: "No save found.",
+      loadDone: "Game loaded.",
+      itemCannotEquip: "Item cannot be equipped.",
+    },
+  },
+};
 
 const state = {
   mapName: null,
@@ -32,8 +439,9 @@ const state = {
   seed: null,
   rng: null,
   crateInterval: 5,
-  lastActionMessage: "—",
+  lastActionMessage: null,
   nextItemId: 1,
+  language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
 };
 
 const MAZE_LAYOUT = `
@@ -109,8 +517,155 @@ const elements = {
   useMedkit: document.getElementById("useMedkit"),
   boardHeader: document.getElementById("boardHeader"),
   mapPreview: document.getElementById("mapPreview"),
+  rulesModal: document.getElementById("rulesModal"),
+  rulesContent: document.getElementById("rulesContent"),
+  rulesTitle: document.getElementById("rulesTitle"),
 };
 
+function getTranslation(key, language = state.language) {
+  return key.split(".").reduce((acc, part) => acc?.[part], translations[language]);
+}
+
+function t(key, vars = {}) {
+  const template = getTranslation(key);
+  if (typeof template !== "string") {
+    return key;
+  }
+  return template.replace(/\{(\w+)\}/g, (_, token) => {
+    if (vars[token] !== undefined) {
+      return vars[token];
+    }
+    return `{${token}}`;
+  });
+}
+
+function setLanguage(language) {
+  if (!translations[language]) return;
+  state.language = language;
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  document.documentElement.lang = language;
+  updateLanguageButtons();
+  updateStaticText();
+  updateMapOptions();
+  renderPlayerTypeList();
+  if (state.map) {
+    render();
+  }
+  renderRulesContent();
+}
+
+function updateLanguageButtons() {
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.lang === state.language);
+  });
+}
+
+function updateStaticText() {
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.dataset.i18n;
+    node.textContent = t(key);
+  });
+}
+
+function updateMapOptions() {
+  Array.from(elements.mapSelect.options).forEach((option) => {
+    option.textContent = t(`maps.${option.value}`);
+  });
+}
+
+function renderRulesContent() {
+  const rules = getTranslation("rules");
+  if (!rules || !elements.rulesContent) return;
+  elements.rulesTitle.textContent = rules.title;
+  const sections = rules.sections
+    .map((section) => `
+      <div class="rules-block">
+        <h3>${section.title}</h3>
+        <ul>
+          ${section.items.map((item) => `<li>${item}</li>`).join("")}
+        </ul>
+      </div>
+    `)
+    .join("");
+  const hotkeys = rules.hotkeys
+    .map((hotkey) => `<span><strong>${hotkey.key}</strong><span>${hotkey.action}</span></span>`)
+    .join("");
+  elements.rulesContent.innerHTML = `
+    <p class="muted">${rules.intro}</p>
+    <div class="rules-grid">${sections}</div>
+    <div>
+      <h3>${rules.hotkeysTitle}</h3>
+      <div class="rules-hotkeys">${hotkeys}</div>
+    </div>
+  `;
+}
+
+function getPlayerLabel(player) {
+  if (player.nameKey) {
+    return t(`players.${player.nameKey}`);
+  }
+  if (player.name) {
+    return player.name;
+  }
+  return "";
+}
+
+function getPlayerLabelById(playerId) {
+  const player = state.players.find((entry) => entry.id === playerId);
+  return player ? getPlayerLabel(player) : "";
+}
+
+function getWeaponLabel(weaponName) {
+  return t(`weapons.${weaponName}`);
+}
+
+function getArmorPartLabel(part) {
+  return t(`armorParts.${part}`);
+}
+
+function getArmorItemLabel(part) {
+  return t(`armorItems.${part}`);
+}
+
+function resolveDisplayParams(params = {}) {
+  const resolved = { ...params };
+  if (params.weapon) {
+    resolved.weapon = getWeaponLabel(params.weapon);
+  }
+  if (params.part) {
+    resolved.part = getArmorPartLabel(params.part);
+  }
+  return resolved;
+}
+
+function getItemDisplayName(item) {
+  if (item.displayKey) {
+    return t(item.displayKey, resolveDisplayParams(item.displayParams));
+  }
+  return item.displayName || "";
+}
+
+function resolveLogVars(vars = {}) {
+  const resolved = { ...vars };
+  if (vars.playerId) resolved.player = getPlayerLabelById(vars.playerId);
+  if (vars.attackerId) resolved.attacker = getPlayerLabelById(vars.attackerId);
+  if (vars.targetId) resolved.target = getPlayerLabelById(vars.targetId);
+  if (vars.weapon) resolved.weapon = getWeaponLabel(vars.weapon);
+  if (vars.part) resolved.part = getArmorPartLabel(vars.part);
+  if (vars.armorItem) resolved.part = getArmorItemLabel(vars.armorItem);
+  if (vars.map) resolved.map = t(`maps.${vars.map}`);
+  if (vars.location && typeof vars.location === "object") {
+    const locationVars = {
+      bodyRoll: vars.location.bodyRoll,
+      partRoll: vars.location.partRoll,
+      part: getArmorPartLabel(vars.location.part),
+    };
+    resolved.location = vars.location.partRoll
+      ? t("log.locationRollWithPart", locationVars)
+      : t("log.locationRoll", locationVars);
+  }
+  return resolved;
+}
 function buildFixedMap(name, layout) {
   const rows = layout
     .trim()
@@ -126,7 +681,7 @@ function init() {
   Object.keys(mapLibrary).forEach((mapName) => {
     const option = document.createElement("option");
     option.value = mapName;
-    option.textContent = mapName;
+    option.textContent = t(`maps.${mapName}`);
     elements.mapSelect.appendChild(option);
   });
 
@@ -140,16 +695,32 @@ function init() {
   elements.endTurn.addEventListener("click", endTurn);
   elements.useMedkit.addEventListener("click", useMedkit);
 
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.addEventListener("click", () => setLanguage(button.dataset.lang));
+  });
+
+  document.querySelectorAll("[data-rules-button]").forEach((button) => {
+    button.addEventListener("click", showRulesModal);
+  });
+  document.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", hideRulesModal);
+  });
+
   document.querySelectorAll("[data-move]").forEach((button) => {
     button.addEventListener("click", () => handleMove(button.dataset.move));
   });
 
   document.addEventListener("keydown", handleHotkeys);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      hideRulesModal();
+    }
+  });
 
   buildGrid();
   buildMapPreviewGrid();
   renderMapPreview();
-  renderPlayerTypeList();
+  setLanguage(state.language);
   showStartScreen();
 }
 
@@ -167,6 +738,18 @@ function buildGrid() {
   }
 }
 
+function showRulesModal() {
+  if (!elements.rulesModal) return;
+  elements.rulesModal.classList.add("is-visible");
+  elements.rulesModal.setAttribute("aria-hidden", "false");
+}
+
+function hideRulesModal() {
+  if (!elements.rulesModal) return;
+  elements.rulesModal.classList.remove("is-visible");
+  elements.rulesModal.setAttribute("aria-hidden", "true");
+}
+
 function startNewGame(keepMapSelection = false) {
   state.items = [];
   state.nextItemId = 1;
@@ -174,7 +757,7 @@ function startNewGame(keepMapSelection = false) {
   state.attackMode = null;
   state.round = 1;
   state.currentPlayerIndex = 0;
-  state.lastActionMessage = "—";
+  state.lastActionMessage = null;
 
   if (!keepMapSelection) {
     elements.mapSelect.value = elements.mapSelect.value || "Maze";
@@ -192,7 +775,7 @@ function startNewGame(keepMapSelection = false) {
 
   assignSpawnPoints();
   startTurn();
-  logEvent(`New game started on ${mapName} with seed ${state.seed}.`);
+  logEvent("log.newGame", { map: mapName, seed: state.seed });
   render();
   hideStartScreen();
 }
@@ -255,10 +838,10 @@ function renderPlayerTypeList() {
     row.innerHTML = `
       <div class="player-chip">
         <span class="dot" style="--player-color: ${preset.color}"></span>
-        ${preset.name} #${index + 1}
+        ${getPlayerLabel(preset)} #${index + 1}
       </div>
       <select>
-        <option value="human">Игрок</option>
+        <option value="human">${t("ui.playerLabel")}</option>
       </select>
     `;
     elements.playerTypeList.appendChild(row);
@@ -277,7 +860,7 @@ function createPlayers(count) {
     const preset = PLAYER_PRESETS[index];
     return {
       id: index + 1,
-      name: preset.name,
+      nameKey: preset.nameKey,
       color: preset.color,
       status: "Alive",
       x: 0,
@@ -325,9 +908,9 @@ function startTurn() {
     if (player.status === "Dead") {
       const respawned = respawnPlayer(player);
       if (respawned) {
-        logEvent(`${player.name} respawned and skips the turn.`);
+        logEvent("log.respawnSkip", { playerId: player.id });
       } else {
-        logEvent(`${player.name} cannot respawn and skips the turn.`);
+        logEvent("log.respawnFail", { playerId: player.id });
       }
       advanceTurn();
       safety += 1;
@@ -338,10 +921,10 @@ function startTurn() {
     if (player.id === 1 && (state.round - 1) % interval === 0) {
       spawnCrate();
     }
-    logEvent(`Turn ${state.round} player ${player.name}.`);
+    logEvent("log.turnStart", { round: state.round, playerId: player.id });
     return;
   }
-  logEvent("No active players to take a turn.");
+  logEvent("log.noActivePlayers");
 }
 
 function updateActionPoints(player) {
@@ -370,7 +953,7 @@ function calculateWeaponPoints(player) {
 
 function handleMove(direction) {
   if (state.attackMode) {
-    logEvent("Cancel target selection to move.");
+    logEvent("log.cancelTargetMove");
     return;
   }
   const delta = {
@@ -385,6 +968,7 @@ function handleMove(direction) {
 
 function handleHotkeys(event) {
   if (event.repeat) return;
+  if (elements.rulesModal?.classList.contains("is-visible")) return;
   const activeTag = document.activeElement?.tagName?.toLowerCase();
   if (["input", "select", "textarea"].includes(activeTag)) return;
   const key = event.key.toLowerCase();
@@ -431,11 +1015,11 @@ function handleTargetHotkey(targetId) {
     (player) => player.id === targetId && player.status === "Alive"
   );
   if (!target) {
-    logEvent("Target is not available.");
+    logEvent("log.targetUnavailable");
     return;
   }
   if (target.id === attacker.id) {
-    logEvent("Cannot target yourself.");
+    logEvent("log.targetSelf");
     return;
   }
   const slot = state.attackMode.slot;
@@ -446,22 +1030,22 @@ function handleTargetHotkey(targetId) {
 function attemptMove(dx, dy) {
   const player = getCurrentPlayer();
   if (state.moves <= 0) {
-    logEvent("No move points left.");
+    logEvent("log.noMovePoints");
     return;
   }
   const nextX = player.x + dx;
   const nextY = player.y + dy;
   if (!isWithinBounds(nextX, nextY)) {
-    logEvent("Cannot move outside map.");
+    logEvent("log.moveOutside");
     return;
   }
   const cellType = getCellType(nextX, nextY);
   if (cellType === "W" || cellType === "R") {
-    logEvent("Blocked by obstacle.");
+    logEvent("log.obstacleBlock");
     return;
   }
   if (getPlayerAt(nextX, nextY)) {
-    logEvent("Another player occupies that cell.");
+    logEvent("log.cellOccupied");
     return;
   }
 
@@ -479,7 +1063,7 @@ function handleCratePickup(x, y) {
   if (crateIndex === -1) return;
   state.items.splice(crateIndex, 1);
   const prizeRoll = roll(1, 8);
-  logEvent("Crate opened.");
+  logEvent("log.crateOpened");
   createCratePrize(prizeRoll, x, y);
   render();
 }
@@ -488,59 +1072,62 @@ function createCratePrize(rollValue, x, y) {
   switch (rollValue) {
     case 1:
       addGroundItem({
-        displayName: "Medkit",
+        displayKey: "items.medkit",
         category: "Medkit",
         quantity: 1,
       }, x, y);
-      logEvent("Crate contains Medkit.");
+      logEvent("log.crateMedkit");
       break;
     case 2:
       addGroundItem({
-        displayName: "Shotgun ammo (4)",
+        displayKey: "items.ammo",
+        displayParams: { weapon: "Shotgun", count: 4 },
         category: "Ammo",
         quantity: 4,
         additional: "Shotgun",
       }, x, y);
       addGroundItem({
-        displayName: "Pistol ammo (6)",
+        displayKey: "items.ammo",
+        displayParams: { weapon: "Pistol", count: 6 },
         category: "Ammo",
         quantity: 6,
         additional: "Pistol",
       }, x, y);
-      logEvent("Crate contains ammo pack.");
+      logEvent("log.crateAmmoPack");
       break;
     case 3:
       addGroundItem({
-        displayName: "Shotgun",
+        displayKey: "weapons.Shotgun",
         category: "Weapon",
         quantity: 2,
         additional: "Shotgun",
       }, x, y);
       addGroundItem({
-        displayName: "Shotgun ammo (4)",
+        displayKey: "items.ammo",
+        displayParams: { weapon: "Shotgun", count: 4 },
         category: "Ammo",
         quantity: 4,
         additional: "Shotgun",
       }, x, y);
-      logEvent("Crate contains shotgun kit.");
+      logEvent("log.crateShotgunKit");
       break;
     case 4:
       [
-        { part: "Head", label: "Helmet" },
-        { part: "Body", label: "Body armor" },
-        { part: "Left Arm", label: "Left arm armor" },
-        { part: "Right Arm", label: "Right arm armor" },
-        { part: "Left Leg", label: "Left leg armor" },
-        { part: "Right Leg", label: "Right leg armor" },
+        { part: "Head" },
+        { part: "Body" },
+        { part: "Left Arm" },
+        { part: "Right Arm" },
+        { part: "Left Leg" },
+        { part: "Right Leg" },
       ].forEach((armor) => {
         addGroundItem({
-          displayName: armor.label,
+          displayKey: `armorItems.${armor.part}`,
           category: "Armor",
           quantity: 1,
           additional: armor.part,
         }, x, y);
       });
-      logEvent("Crate contains full armor (+1).");
+      logEvent("log.crateFullArmor");
       break;
     case 5: {
       const partRoll = roll(1, 6);
@@ -554,45 +1141,47 @@ function createCratePrize(rollValue, x, y) {
       ];
       const part = partMap[partRoll - 1];
       addGroundItem({
-        displayName: `${part} armor (+3)`,
+        displayKey: "items.armorValue",
+        displayParams: { part, value: 3 },
         category: "Armor",
         quantity: 3,
         additional: part,
       }, x, y);
-      logEvent(`Crate contains +3 armor for ${part}.`);
+      logEvent("log.crateArmorPlus", { part });
       break;
     }
     case 6:
       addGroundItem({
-        displayName: "Sword",
+        displayKey: "weapons.Sword",
         category: "Weapon",
         quantity: 0,
         additional: "Sword",
       }, x, y);
-      logEvent("Crate contains a Sword.");
+      logEvent("log.crateSword");
       break;
     case 7:
       addGroundItem({
-        displayName: "Exoskeleton",
+        displayKey: "items.exoskeleton",
         category: "Exoskeleton",
         quantity: 1,
       }, x, y);
-      logEvent("Crate contains an Exoskeleton.");
+      logEvent("log.crateExoskeleton");
       break;
     case 8:
       addGroundItem({
-        displayName: "Bazooka",
+        displayKey: "weapons.Bazooka",
         category: "Weapon",
         quantity: 1,
         additional: "Bazooka",
       }, x, y);
       addGroundItem({
-        displayName: "Bazooka ammo (1)",
+        displayKey: "items.ammo",
+        displayParams: { weapon: "Bazooka", count: 1 },
         category: "Ammo",
         quantity: 1,
         additional: "Bazooka",
       }, x, y);
-      logEvent("Crate contains a Bazooka kit.");
+      logEvent("log.crateBazooka");
       break;
     default:
       break;
@@ -617,15 +1206,15 @@ function spawnCrate() {
     type: "Crate",
     x: spot.x,
     y: spot.y,
-    displayName: "Supply Crate",
+    displayKey: "items.supplyCrate",
   });
-  logEvent("Supply crate spawned.");
+  logEvent("log.supplyCrateSpawned");
 }
 
 function enterAttackMode(slot) {
   const player = getCurrentPlayer();
   if (player.weapons[slot].weaponName === "None") {
-    logEvent("No weapon in that slot.");
+    logEvent("log.noWeaponSlot");
     return;
   }
   const weaponName = player.weapons[slot].weaponName;
@@ -652,57 +1241,51 @@ function executeAttack(slot, targetX, targetY) {
   const weapon = attacker.weapons[slot];
 
   if (state.weaponPoints <= 0) {
-    logEvent("No weapon points left.");
+    logEvent("log.noWeaponPoints");
     return;
   }
   if (attacker.leftArmArmor < 0 && attacker.rightArmArmor < 0) {
-    logEvent("You have no usable arms.");
+    logEvent("log.noArms");
     return;
   }
   const distance = Math.abs(targetX - attacker.x) + Math.abs(targetY - attacker.y);
   const range = getWeaponRange(weapon.weaponName);
   if (distance > range) {
-    logEvent("Target is too far.");
+    logEvent("log.targetTooFar");
     return;
   }
   if (!canTargetCell(attacker, weapon.weaponName, targetX, targetY)) {
-    logEvent("Line of sight blocked by wall.");
+    logEvent("log.lineOfSightBlocked");
     return;
   }
   if (["Pistol", "Shotgun", "Bazooka"].includes(weapon.weaponName) && weapon.activeAmmo <= 0) {
-    logEvent("Out of ammo.");
+    logEvent("log.outOfAmmo");
     return;
   }
   const target = getPlayerAt(targetX, targetY);
   if (!target) {
-    logEvent("No target on that cell.");
+    logEvent("log.noTarget");
     return;
   }
 
   const shots = ["Shotgun", "Sword"].includes(weapon.weaponName) ? 2 : 1;
   const distancePenalty = attacker.leftArmArmor < 0 || attacker.rightArmArmor < 0 ? 2 : 0;
-  const shotReports = [];
-
   for (let shot = 0; shot < shots; shot += 1) {
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
       const hitInfo = applyHit(attacker, target, weapon.weaponName);
-      const locationDetails = hitInfo.partRoll
-        ? `location roll ${hitInfo.bodyRoll}, part roll ${hitInfo.partRoll} -> ${hitInfo.part}`
-        : `location roll ${hitInfo.bodyRoll} -> ${hitInfo.part}`;
-      let report = `Shot ${shot + 1}: hit (roll ${distanceCheck}), ${locationDetails}.`;
-      if (hitInfo.killed) {
-        report += ` ${target.name} died (hit ${hitInfo.part}).`;
-      }
-      logEvent(report);
-      shotReports.push(report);
-      if (hitInfo.killed) {
-        break;
-      }
+      logEvent("log.shotHit", {
+        shot: shot + 1,
+        roll: distanceCheck,
+        location: {
+          bodyRoll: hitInfo.bodyRoll,
+          partRoll: hitInfo.partRoll,
+          part: hitInfo.part,
+        },
+      });
+      if (hitInfo.killed) break;
     } else {
-      const report = `Shot ${shot + 1}: missed (roll ${distanceCheck}).`;
-      logEvent(report);
-      shotReports.push(report);
+      logEvent("log.shotMiss", { shot: shot + 1, roll: distanceCheck });
     }
   }
 
@@ -713,9 +1296,6 @@ function executeAttack(slot, targetX, targetY) {
     state.moves = 0;
   }
 
-  if (shotReports.length > 0) {
-    setLastActionMessage(`${attacker.name} attacked ${target.name}: ${shotReports.join(" ")}`);
-  }
   render();
 }
 
@@ -814,7 +1394,7 @@ function handleDeath(attacker, target, part) {
   if (attacker) {
     attacker.frags += 1;
   }
-  logEvent(`${target.name} died (hit ${part}).`);
+  logEvent("log.killedReport", { targetId: target.id, part });
   dropPlayerLoot(target);
   target.x = 0;
   target.y = 0;
@@ -827,7 +1407,7 @@ function dropPlayerLoot(player) {
   player.weapons.forEach((weapon) => {
     if (weapon.weaponName !== "None" && weapon.weaponName !== "Knife" && weapon.weaponName !== "Pistol") {
       addGroundItem({
-        displayName: weapon.weaponName,
+        displayKey: `weapons.${weapon.weaponName}`,
         category: "Weapon",
         quantity: weapon.activeAmmo,
         additional: weapon.weaponName,
@@ -837,7 +1417,8 @@ function dropPlayerLoot(player) {
       const ammoTotal = weapon.activeAmmo + weapon.passiveAmmo;
       if (ammoTotal > 0) {
         addGroundItem({
-          displayName: `Pistol ammo (${ammoTotal})`,
+          displayKey: "items.ammo",
+          displayParams: { weapon: "Pistol", count: ammoTotal },
           category: "Ammo",
           quantity: ammoTotal,
           additional: "Pistol",
@@ -845,7 +1426,8 @@ function dropPlayerLoot(player) {
       }
     } else if (weapon.passiveAmmo > 0) {
       addGroundItem({
-        displayName: `${weapon.weaponName} ammo (${weapon.passiveAmmo})`,
+        displayKey: "items.ammo",
+        displayParams: { weapon: weapon.weaponName, count: weapon.passiveAmmo },
         category: "Ammo",
         quantity: weapon.passiveAmmo,
         additional: weapon.weaponName,
@@ -862,17 +1444,18 @@ function dropPlayerLoot(player) {
   player.inventory = [];
 
   const armorDrops = [
-    { part: "Head", value: player.headArmor, label: "Helmet" },
-    { part: "Body", value: player.bodyArmor, label: "Body armor" },
-    { part: "Left Arm", value: player.leftArmArmor, label: "Left arm armor" },
-    { part: "Right Arm", value: player.rightArmArmor, label: "Right arm armor" },
-    { part: "Left Leg", value: player.leftLegArmor, label: "Left leg armor" },
-    { part: "Right Leg", value: player.rightLegArmor, label: "Right leg armor" },
+    { part: "Head", value: player.headArmor },
+    { part: "Body", value: player.bodyArmor },
+    { part: "Left Arm", value: player.leftArmArmor },
+    { part: "Right Arm", value: player.rightArmArmor },
+    { part: "Left Leg", value: player.leftLegArmor },
+    { part: "Right Leg", value: player.rightLegArmor },
   ];
   armorDrops.forEach((armor) => {
     if (armor.value > 0) {
       addGroundItem({
-        displayName: armor.label,
+        displayKey: "items.armorValue",
+        displayParams: { part: armor.part, value: armor.value },
         category: "Armor",
         quantity: armor.value,
         additional: armor.part,
@@ -920,20 +1503,20 @@ function reloadWeapon(slot) {
   const player = getCurrentPlayer();
   const weapon = player.weapons[slot];
   if (!WEAPON_CAPACITY[weapon.weaponName]) {
-    logEvent("This weapon cannot be reloaded.");
+    logEvent("log.reloadUnavailable");
     return;
   }
   if (state.weaponPoints <= 0) {
-    logEvent("No weapon points left.");
+    logEvent("log.noWeaponPoints");
     return;
   }
   const maxAmmo = WEAPON_CAPACITY[weapon.weaponName];
   if (weapon.activeAmmo >= maxAmmo) {
-    logEvent("Weapon already full.");
+    logEvent("log.weaponReloadedFull");
     return;
   }
   if (weapon.passiveAmmo <= 0) {
-    logEvent("No spare ammo.");
+    logEvent("log.weaponReloadedNoAmmo");
     return;
   }
   const needed = maxAmmo - weapon.activeAmmo;
@@ -941,7 +1524,7 @@ function reloadWeapon(slot) {
   weapon.activeAmmo += toLoad;
   weapon.passiveAmmo -= toLoad;
   state.weaponPoints = Math.max(0, state.weaponPoints - 1);
-  logEvent(`Reloaded ${weapon.weaponName} by ${toLoad}.`);
+  logEvent("log.weaponReloaded", { weapon: weapon.weaponName, count: toLoad });
   render();
 }
 
@@ -954,7 +1537,7 @@ function reloadFirstAvailableWeapon() {
     return weapon.passiveAmmo > 0;
   });
   if (slot === -1) {
-    logEvent("No weapon available to reload.");
+    logEvent("log.noWeaponToReload");
     return;
   }
   reloadWeapon(slot);
@@ -964,10 +1547,10 @@ function dropWeapon(slot) {
   const player = getCurrentPlayer();
   const dropped = dropWeaponFromSlot(player, slot, player.x, player.y);
   if (!dropped) {
-    logEvent("Nothing to drop.");
+    logEvent("log.nothingToDrop");
     return;
   }
-  logEvent(`${dropped} dropped.`);
+  logEvent("log.dropWeapon", { weapon: dropped });
   render();
 }
 
@@ -977,14 +1560,15 @@ function dropWeaponFromSlot(player, slot, x, y) {
     return null;
   }
   addGroundItem({
-    displayName: weapon.weaponName,
+    displayKey: `weapons.${weapon.weaponName}`,
     category: "Weapon",
     quantity: weapon.activeAmmo,
     additional: weapon.weaponName,
   }, x, y);
   if (weapon.passiveAmmo > 0) {
     addGroundItem({
-      displayName: `${weapon.weaponName} ammo (${weapon.passiveAmmo})`,
+      displayKey: "items.ammo",
+      displayParams: { weapon: weapon.weaponName, count: weapon.passiveAmmo },
       category: "Ammo",
       quantity: weapon.passiveAmmo,
       additional: weapon.weaponName,
@@ -999,7 +1583,7 @@ function useMedkit() {
   const player = getCurrentPlayer();
   const medkitIndex = player.inventory.findIndex((item) => item.category === "Medkit");
   if (medkitIndex === -1) {
-    logEvent("No medkit in inventory.");
+    logEvent("log.medkitMissing");
     return;
   }
   player.health = 3;
@@ -1008,7 +1592,7 @@ function useMedkit() {
   if (player.leftArmArmor === -1) player.leftArmArmor = 0;
   if (player.rightArmArmor === -1) player.rightArmArmor = 0;
   player.inventory.splice(medkitIndex, 1);
-  logEvent("Medkit was used.");
+  logEvent("log.medkitUsed");
   render();
 }
 
@@ -1042,7 +1626,7 @@ function handleGroundItemAction(itemId, action, slot) {
       } else if (item.category === "Armor") {
         equipArmor(item, itemIndex);
       } else {
-        logEvent("Item cannot be equipped.");
+        logEvent("log.itemCannotEquip");
       }
       break;
     case "take":
@@ -1050,7 +1634,7 @@ function handleGroundItemAction(itemId, action, slot) {
       break;
     case "destroy":
       state.items.splice(itemIndex, 1);
-      logEvent("Item destroyed.");
+      logEvent("log.itemDestroyed");
       break;
     default:
       break;
@@ -1063,7 +1647,7 @@ function equipWeapon(item, slot, itemIndex) {
   if (player.weapons[slot].weaponName !== "None") {
     const dropped = dropWeaponFromSlot(player, slot, player.x, player.y);
     if (dropped) {
-      logEvent(`${dropped} dropped from slot ${slot + 1}.`);
+      logEvent("log.dropWeaponSlot", { weapon: dropped, slot: slot + 1 });
     }
   }
   player.weapons[slot] = {
@@ -1072,20 +1656,20 @@ function equipWeapon(item, slot, itemIndex) {
     passiveAmmo: 0,
   };
   state.items.splice(itemIndex, 1);
-  logEvent(`${item.additional} equipped in slot ${slot + 1}.`);
+  logEvent("log.weaponEquipped", { weapon: item.additional, slot: slot + 1 });
 }
 
 function equipAmmo(item, slot, itemIndex) {
   const player = getCurrentPlayer();
   const weapon = player.weapons[slot];
   if (weapon.weaponName !== item.additional) {
-    logEvent("This ammo doesn't fit to your gun.");
+    logEvent("log.ammoMismatch");
     return;
   }
   const limit = PASSIVE_LIMIT[item.additional] || 0;
   const space = limit - weapon.passiveAmmo;
   if (space <= 0) {
-    logEvent("No space for more ammo.");
+    logEvent("log.noAmmoSpace");
     return;
   }
   const toAdd = Math.min(space, item.quantity);
@@ -1094,13 +1678,14 @@ function equipAmmo(item, slot, itemIndex) {
   state.items.splice(itemIndex, 1);
   if (leftover > 0) {
     addGroundItem({
-      displayName: `${item.additional} ammo (${leftover})`,
+      displayKey: "items.ammo",
+      displayParams: { weapon: item.additional, count: leftover },
       category: "Ammo",
       quantity: leftover,
       additional: item.additional,
     }, player.x, player.y);
   }
-  logEvent(`Ammo equipped to slot ${slot + 1}.`);
+  logEvent("log.ammoEquipped", { slot: slot + 1 });
 }
 
 function equipArmor(item, itemIndex) {
@@ -1120,13 +1705,14 @@ function equipArmor(item, itemIndex) {
     || (part === "Right Arm" && player.rightArmArmor < 0)
     || (part === "Left Leg" && player.leftLegArmor < 0)
     || (part === "Right Leg" && player.rightLegArmor < 0)) {
-    logEvent("You can't wear it on damaged body part.");
+    logEvent("log.armorDamaged");
     return;
   }
   const currentValue = player[targetKey];
   if (currentValue > 0) {
     addGroundItem({
-      displayName: `${part} armor (${currentValue})`,
+      displayKey: "items.armorValue",
+      displayParams: { part, value: currentValue },
       category: "Armor",
       quantity: currentValue,
       additional: part,
@@ -1134,12 +1720,12 @@ function equipArmor(item, itemIndex) {
   }
   player[targetKey] = item.quantity;
   state.items.splice(itemIndex, 1);
-  logEvent(`${part} armor equipped.`);
+  logEvent("log.armorEquipped", { armorItem: part });
 }
 
 function takeItem(item, itemIndex, player) {
   if (player.inventory.length >= INVENTORY_SIZE) {
-    logEvent("Inventory is full.");
+    logEvent("log.inventoryFull");
     return;
   }
   const hadExoskeleton = player.inventory.some((entry) => entry.category === "Exoskeleton");
@@ -1148,7 +1734,7 @@ function takeItem(item, itemIndex, player) {
   if (item.category === "Exoskeleton" && !hadExoskeleton) {
     state.moves += 2;
   }
-  logEvent("Item added to inventory.");
+  logEvent("log.itemAdded");
 }
 
 function dropInventoryItem(index) {
@@ -1164,7 +1750,7 @@ function dropInventoryItem(index) {
       state.moves = Math.max(0, state.moves - 2);
     }
   }
-  logEvent("Inventory item dropped.");
+  logEvent("log.inventoryItemDropped");
   render();
 }
 
@@ -1175,6 +1761,8 @@ function addGroundItem(item, x, y) {
     x,
     y,
     displayName: item.displayName,
+    displayKey: item.displayKey,
+    displayParams: item.displayParams,
     category: item.category,
     quantity: item.quantity,
     additional: item.additional,
@@ -1302,7 +1890,7 @@ function renderGrid() {
       if (!groundItemsByCell.has(key)) {
         groundItemsByCell.set(key, []);
       }
-      groundItemsByCell.get(key).push(item.displayName);
+      groundItemsByCell.get(key).push(getItemDisplayName(item));
     });
   const itemCells = new Set(
     state.items
@@ -1360,19 +1948,20 @@ function renderTurnInfo() {
     .map((weapon, index) => {
       const canReload = Boolean(WEAPON_CAPACITY[weapon.weaponName]);
       const disabled = weapon.weaponName === "None" ? "disabled" : "";
+      const weaponLabel = getWeaponLabel(weapon.weaponName);
       return `
       <div class="weapon-card">
-        <div class="weapon-title">Slot ${index + 1}</div>
-        <div class="weapon-name">${weapon.weaponName}</div>
+        <div class="weapon-title">${t("ui.slot", { slot: index + 1 })}</div>
+        <div class="weapon-name">${weaponLabel}</div>
         <div class="weapon-ammo">${
     weapon.weaponName === "None"
       ? "—"
       : `${weapon.activeAmmo}/${weapon.passiveAmmo}`
   }</div>
         <div class="weapon-actions">
-          <button data-weapon="${index}" ${disabled}>Attack</button>
-          ${canReload ? `<button data-reload="${index}" ${disabled}>Reload</button>` : ""}
-          <button data-drop-weapon="${index}" ${disabled}>Drop</button>
+          <button data-weapon="${index}" ${disabled}>${t("ui.attack")}</button>
+          ${canReload ? `<button data-reload="${index}" ${disabled}>${t("ui.reload")}</button>` : ""}
+          <button data-drop-weapon="${index}" ${disabled}>${t("ui.drop")}</button>
         </div>
       </div>
     `;
@@ -1381,7 +1970,7 @@ function renderTurnInfo() {
 
   elements.turnInfo.innerHTML = `
     <div class="turn-header">
-      <div class="badge status-${player.status.toLowerCase()}">${player.status}</div>
+      <div class="badge status-${player.status.toLowerCase()}">${t("status." + player.status)}</div>
     </div>
     <div class="turn-layout">
       <div class="avatar-panel">
@@ -1392,16 +1981,16 @@ function renderTurnInfo() {
       </div>
       <div class="action-panel">
         <div class="action-group">
-          <span class="action-label">Moves</span>
+          <span class="action-label">${t("ui.moves")}</span>
           <div class="point-boxes">${renderPointBoxes(state.moves, moveDisplayMax)}</div>
         </div>
         <div class="action-group">
-          <span class="action-label">Weapon</span>
+          <span class="action-label">${t("ui.weaponPoints")}</span>
           <div class="point-boxes">${renderPointBoxes(state.weaponPoints, 1)}</div>
         </div>
         <div class="stat-pills">
-          <div class="stat-pill">Frags ${player.frags}</div>
-          <div class="stat-pill">Deaths ${player.deaths}</div>
+          <div class="stat-pill">${t("ui.frags")} ${player.frags}</div>
+          <div class="stat-pill">${t("ui.deaths")} ${player.deaths}</div>
         </div>
       </div>
       <div class="weapon-panel">
@@ -1425,9 +2014,9 @@ function renderBoardHeader() {
   const player = getCurrentPlayer();
   if (!elements.boardHeader) return;
   elements.boardHeader.innerHTML = `
-    <div class="badge">Round ${state.round}</div>
+    <div class="badge">${t("ui.round", { round: state.round })}</div>
     <div class="badge player-badge" style="--player-color: ${player.color}">
-      ${player.name}
+      ${getPlayerLabel(player)}
     </div>
   `;
 }
@@ -1460,7 +2049,10 @@ function renderPlayerSummary() {
   elements.playerSummary.innerHTML = state.players
     .map((player) => {
       const weaponSummary = player.weapons
-        .map((weapon, index) => `Slot ${index + 1}: ${weapon.weaponName}`)
+        .map((weapon, index) => t("ui.slotWeapon", {
+          slot: index + 1,
+          weapon: getWeaponLabel(weapon.weaponName),
+        }))
         .join("<br />");
       return `
         <div class="player-summary-card">
@@ -1472,13 +2064,13 @@ function renderPlayerSummary() {
           <div class="player-summary-main">
             <div class="player-summary-header">
               <span class="player-color-dot" style="--player-color: ${player.color}"></span>
-              <span>${player.name}</span>
-              <span class="muted">${player.status}</span>
+              <span>${getPlayerLabel(player)}</span>
+              <span class="muted">${t("status." + player.status)}</span>
             </div>
             <div class="hp-row">${renderHearts(player.health)}</div>
             <div class="player-summary-stats">
-              <span>Frags ${player.frags}</span>
-              <span>Deaths ${player.deaths}</span>
+              <span>${t("ui.frags")} ${player.frags}</span>
+              <span>${t("ui.deaths")} ${player.deaths}</span>
             </div>
             <div class="player-summary-weapons">
               ${weaponSummary}
@@ -1533,14 +2125,14 @@ function renderGroundItems() {
   );
   elements.groundItems.innerHTML = "";
   if (items.length === 0) {
-    elements.groundItems.innerHTML = '<div class="muted">No items here.</div>';
+    elements.groundItems.innerHTML = `<div class="muted">${t("ui.noItemsHere")}</div>`;
     return;
   }
   items.slice(0, 8).forEach((item) => {
     const row = document.createElement("div");
     row.className = "item-row";
     row.innerHTML = `
-      <span>${item.displayName}</span>
+      <span>${getItemDisplayName(item)}</span>
       ${renderGroundItemButtons(item)}
     `;
     row.querySelectorAll("button").forEach((button) => {
@@ -1557,27 +2149,27 @@ function renderGroundItems() {
 function renderGroundItemButtons(item) {
   const buttons = [];
   if (item.category === "Armor") {
-    buttons.push({ label: "Equip", action: "equip" });
-    buttons.push({ label: "Take", action: "take" });
+    buttons.push({ label: t("ui.equip"), action: "equip" });
+    buttons.push({ label: t("ui.take"), action: "take" });
   } else if (item.category === "Exoskeleton") {
-    buttons.push({ label: "Take", action: "take" });
-    buttons.push({ label: "Destroy", action: "destroy" });
+    buttons.push({ label: t("ui.take"), action: "take" });
+    buttons.push({ label: t("ui.destroy"), action: "destroy" });
   } else if (item.category === "Medkit") {
-    buttons.push({ label: "Take", action: "take" });
-    buttons.push({ label: "Destroy", action: "destroy" });
+    buttons.push({ label: t("ui.take"), action: "take" });
+    buttons.push({ label: t("ui.destroy"), action: "destroy" });
   } else if (item.category === "Weapon") {
-    buttons.push({ label: "Equip A", action: "equip", slot: 0 });
-    buttons.push({ label: "Equip B", action: "equip", slot: 1 });
-    buttons.push({ label: "Take", action: "take" });
-    buttons.push({ label: "Destroy", action: "destroy" });
+    buttons.push({ label: t("ui.equipA"), action: "equip", slot: 0 });
+    buttons.push({ label: t("ui.equipB"), action: "equip", slot: 1 });
+    buttons.push({ label: t("ui.take"), action: "take" });
+    buttons.push({ label: t("ui.destroy"), action: "destroy" });
   } else if (item.category === "Ammo") {
-    buttons.push({ label: "Equip A", action: "equip", slot: 0 });
-    buttons.push({ label: "Equip B", action: "equip", slot: 1 });
-    buttons.push({ label: "Take", action: "take" });
-    buttons.push({ label: "Destroy", action: "destroy" });
+    buttons.push({ label: t("ui.equipA"), action: "equip", slot: 0 });
+    buttons.push({ label: t("ui.equipB"), action: "equip", slot: 1 });
+    buttons.push({ label: t("ui.take"), action: "take" });
+    buttons.push({ label: t("ui.destroy"), action: "destroy" });
   } else {
-    buttons.push({ label: "Take", action: "take" });
-    buttons.push({ label: "Destroy", action: "destroy" });
+    buttons.push({ label: t("ui.take"), action: "take" });
+    buttons.push({ label: t("ui.destroy"), action: "destroy" });
   }
 
   return buttons
@@ -1595,15 +2187,15 @@ function renderInventory() {
   const player = getCurrentPlayer();
   elements.inventory.innerHTML = "";
   if (player.inventory.length === 0) {
-    elements.inventory.innerHTML = '<div class="muted">Inventory is empty.</div>';
+    elements.inventory.innerHTML = `<div class="muted">${t("ui.inventoryEmpty")}</div>`;
     return;
   }
   player.inventory.forEach((item, index) => {
     const row = document.createElement("div");
     row.className = "inventory-row";
     row.innerHTML = `
-      <span>${item.displayName}</span>
-      <button>Drop</button>
+      <span>${getItemDisplayName(item)}</span>
+      <button>${t("ui.dropItem")}</button>
     `;
     row.querySelector("button").addEventListener("click", () => dropInventoryItem(index));
     elements.inventory.appendChild(row);
@@ -1615,9 +2207,14 @@ function renderLog() {
   state.log.slice(-MAX_LOG).forEach((entry) => {
     const row = document.createElement("div");
     row.className = "log-entry";
-    row.textContent = entry;
+    row.textContent = formatLogEntry(entry);
     elements.log.appendChild(row);
   });
+}
+
+function formatLogEntry(entry) {
+  if (typeof entry === "string") return entry;
+  return t(entry.key, resolveLogVars(entry.vars));
 }
 
 function renderLastAction() {
@@ -1628,7 +2225,7 @@ function renderLastAction() {
       return;
     }
     elements.lastActionMessage.innerHTML = entries
-      .map((entry) => `<div class="action-entry">${entry}</div>`)
+      .map((entry) => `<div class="action-entry">${formatLogEntry(entry)}</div>`)
       .join("");
   }
 }
@@ -1644,9 +2241,10 @@ function setLastActionMessage(message) {
   }
 }
 
-function logEvent(message) {
-  state.log.push(message);
-  setLastActionMessage(message);
+function logEvent(key, vars = {}) {
+  const entry = { key, vars };
+  state.log.push(entry);
+  setLastActionMessage(entry);
   if (state.log.length > MAX_LOG) {
     state.log.shift();
   }
@@ -1674,32 +2272,38 @@ function mulberry32(seed) {
 function saveGame() {
   const payload = JSON.stringify(state);
   localStorage.setItem("cellshot-save", payload);
-  logEvent("Game saved to local storage.");
+  logEvent("log.saveDone");
   renderLog();
 }
 
 function loadGame() {
   const payload = localStorage.getItem("cellshot-save");
   if (!payload) {
-    logEvent("No save found.");
+    logEvent("log.noSave");
     renderLog();
     return;
   }
   const data = JSON.parse(payload);
   Object.assign(state, data);
   state.rng = mulberry32(state.seed);
-  logEvent("Game loaded.");
+  state.players.forEach((player, index) => {
+    if (!player.nameKey) {
+      player.nameKey = player.name || PLAYER_PRESETS[index]?.nameKey || "Red";
+    }
+  });
+  logEvent("log.loadDone");
   elements.mapSelect.value = state.mapName;
   elements.crateInterval.value = state.crateInterval || 5;
   elements.playerCount.value = String(state.players.length);
-  renderPlayerTypeList();
-  render();
+  setLanguage(state.language);
   hideStartScreen();
 }
 
 function stripItem(item) {
   return {
     displayName: item.displayName,
+    displayKey: item.displayKey,
+    displayParams: item.displayParams,
     category: item.category,
     quantity: item.quantity,
     additional: item.additional,
