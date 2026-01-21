@@ -979,6 +979,21 @@ main {
   gap: 16px;
 }
 
+.victory-message {
+  font-size: 16px;
+  color: #e2e8f0;
+}
+
+.modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.modal__actions button {
+  flex: 1 1 200px;
+}
+
 .modal__close {
   position: absolute;
   top: 12px;
