@@ -60,6 +60,10 @@
             <span data-i18n="start.crateLabel">Частота появления ящиков (N ходов)</span>
             <input id="crateInterval" type="number" min="1" value="3" />
           </label>
+          <label>
+            <span data-i18n="start.fragLimitLabel">Фрагов до победы</span>
+            <input id="fragLimit" type="number" min="1" value="10" />
+          </label>
           <button id="startGame" class="primary" data-i18n="start.startButton">Начать миссию</button>
         </div>
       </div>
@@ -154,6 +158,18 @@
       <button class="modal__close" type="button" aria-label="Close" data-close-modal>×</button>
       <h2 id="rulesTitle"></h2>
       <div id="rulesContent" class="rules-content"></div>
+    </div>
+  </div>
+
+  <div id="victoryModal" class="modal" aria-hidden="true">
+    <div class="modal__overlay" data-close-victory></div>
+    <div class="modal__content" role="dialog" aria-modal="true" aria-labelledby="victoryTitle">
+      <h2 id="victoryTitle" data-i18n="victory.title">Победа!</h2>
+      <p id="victoryMessage" class="victory-message"></p>
+      <div class="modal__actions">
+        <button type="button" class="primary" data-victory-new data-i18n="victory.newGame">Новая игра</button>
+        <button type="button" data-victory-continue data-i18n="victory.continue">Продолжить игру</button>
+      </div>
     </div>
   </div>
 

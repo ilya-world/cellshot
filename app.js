@@ -35,6 +35,7 @@ const translations = {
       playerCountLabel: "Количество игроков",
       aiNote: "Можно выбрать AI для отдельного игрока",
       crateLabel: "Частота появления ящиков (N ходов)",
+      fragLimitLabel: "Фрагов до победы",
       startButton: "Начать миссию",
     },
     game: {
@@ -165,7 +166,7 @@ const translations = {
           title: "Что бывает в ящиках",
           items: [
             "Аптечка — полностью восстанавливает здоровье и конечности.",
-            "Набор патронов — патроны для пистолета и дробовика.",
+            "Набор патронов — патроны для пистолета, дробовика и базуки.",
             "Дробовик с патронами — оружие с двумя выстрелами за атаку.",
             "Полный комплект брони (+1) — шлем, бронежилет и броня конечностей.",
             "Броня +3 на случайную часть тела — усиливает выбранную часть.",
@@ -183,6 +184,12 @@ const translations = {
         { key: "E / Enter", action: "Закончить ход" },
         { key: "1-9 (в режиме атаки)", action: "Выбор цели по номеру игрока" },
       ],
+    },
+    victory: {
+      title: "Победа!",
+      message: "Побеждает {player}!",
+      newGame: "Новая игра",
+      continue: "Продолжить игру",
     },
     log: {
       newGame: "Новая игра на карте {map}, seed {seed}.",
@@ -261,6 +268,7 @@ const translations = {
       playerCountLabel: "Player count",
       aiNote: "AI can be assigned per player",
       crateLabel: "Crate spawn frequency (N turns)",
+      fragLimitLabel: "Frags to win",
       startButton: "Start mission",
     },
     game: {
@@ -391,7 +399,7 @@ const translations = {
           title: "What's inside crates",
           items: [
             "Medkit — fully restores health and damaged limbs.",
-            "Ammo pack — pistol and shotgun ammo.",
+            "Ammo pack — pistol, shotgun, and bazooka ammo.",
             "Shotgun kit — shotgun with extra ammo (two shots per attack).",
             "Full armor (+1) — helmet, body armor, and limb armor.",
             "+3 armor for a random body part — boosts that part.",
@@ -409,6 +417,12 @@ const translations = {
         { key: "E / Enter", action: "End turn" },
         { key: "1-9 (attack mode)", action: "Target player number" },
       ],
+    },
+    victory: {
+      title: "Victory!",
+      message: "{player} wins!",
+      newGame: "New game",
+      continue: "Continue game",
     },
     log: {
       newGame: "New game on {map}, seed {seed}.",
@@ -488,11 +502,13 @@ const state = {
   seed: null,
   rng: null,
   crateInterval: 3,
+  fragLimit: 10,
   lastActionMessage: null,
   nextItemId: 1,
   language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
   playerTypeSelections: [],
   aiTurnId: 0,
+  victory: null,
 };
 
 const MAZE_LAYOUT = `
@@ -554,6 +570,7 @@ const elements = {
   playerCount: document.getElementById("playerCount"),
   playerTypeList: document.getElementById("playerTypeList"),
   crateInterval: document.getElementById("crateInterval"),
+  fragLimit: document.getElementById("fragLimit"),
   newGame: document.getElementById("newGame"),
   resetGame: document.getElementById("resetGame"),
   saveGame: document.getElementById("saveGame"),
@@ -571,6 +588,10 @@ const elements = {
   rulesModal: document.getElementById("rulesModal"),
   rulesContent: document.getElementById("rulesContent"),
   rulesTitle: document.getElementById("rulesTitle"),
+  victoryModal: document.getElementById("victoryModal"),
+  victoryMessage: document.getElementById("victoryMessage"),
+  victoryNewGame: document.querySelector("[data-victory-new]"),
+  victoryContinue: document.querySelector("[data-victory-continue]"),
 };
 
 function getTranslation(key, language = state.language) {
@@ -603,6 +624,9 @@ function setLanguage(language) {
     render();
   }
   renderRulesContent();
+  if (state.victory) {
+    updateVictoryMessage();
+  }
 }
 
 function updateLanguageButtons() {
@@ -756,6 +780,18 @@ function init() {
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", hideRulesModal);
   });
+  document.querySelectorAll("[data-close-victory]").forEach((button) => {
+    button.addEventListener("click", () => hideVictoryModal());
+  });
+  if (elements.victoryNewGame) {
+    elements.victoryNewGame.addEventListener("click", () => {
+      hideVictoryModal(true);
+      showStartScreen();
+    });
+  }
+  if (elements.victoryContinue) {
+    elements.victoryContinue.addEventListener("click", () => hideVictoryModal());
+  }
 
   document.querySelectorAll("[data-move]").forEach((button) => {
     button.addEventListener("click", () => handleMove(button.dataset.move));
@@ -765,6 +801,9 @@ function init() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       hideRulesModal();
+      if (state.victory) {
+        hideVictoryModal();
+      }
     }
   });
 
@@ -801,6 +840,32 @@ function hideRulesModal() {
   elements.rulesModal.setAttribute("aria-hidden", "true");
 }
 
+function updateVictoryMessage() {
+  if (!state.victory || !elements.victoryMessage) return;
+  const winner = state.players.find((player) => player.id === state.victory.winnerId);
+  if (!winner) return;
+  elements.victoryMessage.textContent = t("victory.message", {
+    player: getPlayerLabel(winner),
+  });
+}
+
+function showVictoryModal(winner) {
+  if (!elements.victoryModal) return;
+  state.victory = { winnerId: winner.id };
+  updateVictoryMessage();
+  elements.victoryModal.classList.add("is-visible");
+  elements.victoryModal.setAttribute("aria-hidden", "false");
+}
+
+function hideVictoryModal(keepState = false) {
+  if (!elements.victoryModal) return;
+  elements.victoryModal.classList.remove("is-visible");
+  elements.victoryModal.setAttribute("aria-hidden", "true");
+  if (!keepState) {
+    state.victory = null;
+  }
+}
+
 function startNewGame(keepMapSelection = false) {
   state.items = [];
   state.nextItemId = 1;
@@ -810,6 +875,7 @@ function startNewGame(keepMapSelection = false) {
   state.currentPlayerIndex = 0;
   state.lastActionMessage = null;
   state.aiTurnId += 1;
+  state.victory = null;
 
   if (!keepMapSelection) {
     elements.mapSelect.value = elements.mapSelect.value || "Maze";
@@ -825,6 +891,7 @@ function startNewGame(keepMapSelection = false) {
   state.seed = Date.now();
   state.rng = mulberry32(state.seed);
   state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 3);
+  state.fragLimit = Math.max(1, Number(elements.fragLimit.value) || 10);
 
   assignSpawnPoints();
   startTurn();
@@ -837,6 +904,9 @@ function showStartScreen() {
   document.body.classList.add("start-mode");
   if (state.mapName) {
     elements.mapSelect.value = state.mapName;
+  }
+  if (elements.fragLimit) {
+    elements.fragLimit.value = String(state.fragLimit || 10);
   }
   renderMapPreview();
   renderPlayerTypeList();
@@ -1049,6 +1119,31 @@ function getWeaponDamageFactor(weaponName) {
   return 1;
 }
 
+function getWeaponRank(weaponName) {
+  const weaponRank = {
+    Knife: 0,
+    Pistol: 1,
+    Sword: 2,
+    Shotgun: 3,
+    Bazooka: 4,
+    None: -1,
+  };
+  return weaponRank[weaponName] ?? 0;
+}
+
+function hasUsableAmmo(weapon) {
+  if (!WEAPON_CAPACITY[weapon.weaponName]) return true;
+  return weapon.activeAmmo + weapon.passiveAmmo > 0;
+}
+
+function getWeaponEffectiveRank(weapon) {
+  const baseRank = getWeaponRank(weapon.weaponName);
+  if (!hasUsableAmmo(weapon)) {
+    return baseRank - 2;
+  }
+  return baseRank;
+}
+
 function getAmmoRatio(weapon) {
   const capacity = WEAPON_CAPACITY[weapon.weaponName];
   if (!capacity) return 1;
@@ -1072,21 +1167,22 @@ function scoreAiAttack(attacker, weapon, target) {
   return expectedDamage * vulnerability * distanceWeight * getAmmoRatio(weapon);
 }
 
-function getAiAttackOption(player) {
+function getAiAttackOption(player, position = null) {
   if (state.weaponPoints <= 0) return null;
   let bestOption = null;
   let bestScore = -Infinity;
+  const attacker = position ? { ...player, x: position.x, y: position.y } : player;
   for (let slot = 0; slot < player.weapons.length; slot += 1) {
     const weapon = player.weapons[slot];
     if (weapon.weaponName === "None") continue;
     if (WEAPON_CAPACITY[weapon.weaponName] && weapon.activeAmmo <= 0) continue;
-    const targets = getPotentialTargets(player, weapon.weaponName);
+    const targets = getPotentialTargets(attacker, weapon.weaponName);
     if (!targets.length) continue;
     targets.forEach((target) => {
-      const score = scoreAiAttack(player, weapon, target);
+      const score = scoreAiAttack(attacker, weapon, target);
       if (score > bestScore) {
         bestScore = score;
-        bestOption = { slot, target };
+        bestOption = { slot, target, score };
       }
     });
   }
@@ -1124,19 +1220,14 @@ function getAiItemValue(item, player) {
     return hasExoskeleton ? 0 : 3;
   }
   if (item.category === "Weapon") {
-    const weaponRank = {
-      Knife: 0,
-      Pistol: 1,
-      Sword: 2,
-      Shotgun: 3,
-      Bazooka: 4,
-    };
-    const newRank = weaponRank[item.additional] ?? 0;
-    const currentRanks = player.weapons.map((weapon) => weaponRank[weapon.weaponName] ?? -1);
+    const newRank = getWeaponRank(item.additional);
+    const hasAmmo = !WEAPON_CAPACITY[item.additional] || item.quantity > 0;
+    const newEffectiveRank = hasAmmo ? newRank : newRank - 2;
+    const currentRanks = player.weapons.map((weapon) => getWeaponEffectiveRank(weapon));
     const hasEmptySlot = player.weapons.some((weapon) => weapon.weaponName === "None");
     const bestCurrent = Math.max(...currentRanks);
-    if (hasEmptySlot) return 3 + newRank;
-    return newRank > bestCurrent ? 3 + (newRank - bestCurrent) : 0;
+    if (hasEmptySlot) return 3 + newEffectiveRank;
+    return newEffectiveRank > bestCurrent ? 3 + (newEffectiveRank - bestCurrent) : 0;
   }
   if (item.category === "Ammo") {
     const weapon = player.weapons.find((entry) => entry.weaponName === item.additional);
@@ -1148,41 +1239,37 @@ function getAiItemValue(item, player) {
 }
 
 function getAiBestItemTarget(player) {
+  const playerKey = `${player.x},${player.y}`;
+  const allowedPositions = new Set([playerKey]);
   const candidates = state.items
-    .map((item) => ({
-      item,
-      value: getAiItemValue(item, player),
-    }))
-    .filter((entry) => entry.value > 0);
+    .map((item) => {
+      const value = getAiItemValue(item, player);
+      if (value <= 0) return null;
+      const distanceMap = buildDistanceMap(item.x, item.y, allowedPositions);
+      const distance = distanceMap.get(playerKey);
+      if (distance === undefined) return null;
+      return { item, value, distance };
+    })
+    .filter(Boolean);
   if (!candidates.length) return null;
   return candidates.reduce((best, entry) => {
-    const bestDistance = Math.abs(best.item.x - player.x) + Math.abs(best.item.y - player.y);
-    const entryDistance = Math.abs(entry.item.x - player.x) + Math.abs(entry.item.y - player.y);
-    const bestScore = best.value * 3 - bestDistance;
-    const entryScore = entry.value * 3 - entryDistance;
+    const bestScore = best.value * 3 - best.distance;
+    const entryScore = entry.value * 3 - entry.distance;
     return entryScore > bestScore ? entry : best;
   }, candidates[0]);
 }
 
 function getAiWeaponSlot(player, weaponName) {
-  const weaponRank = {
-    Knife: 0,
-    Pistol: 1,
-    Sword: 2,
-    Shotgun: 3,
-    Bazooka: 4,
-    None: -1,
-  };
   const emptySlot = player.weapons.findIndex((weapon) => weapon.weaponName === "None");
   if (emptySlot !== -1) return emptySlot;
-  const newRank = weaponRank[weaponName] ?? 0;
+  const newRank = getWeaponRank(weaponName);
   const slotWithWorst = player.weapons.reduce(
     (best, weapon, index) => {
-      const rank = weaponRank[weapon.weaponName] ?? 0;
+      const rank = getWeaponEffectiveRank(weapon);
       if (rank < best.rank) return { index, rank };
       return best;
     },
-    { index: 0, rank: weaponRank[player.weapons[0].weaponName] ?? 0 }
+    { index: 0, rank: getWeaponEffectiveRank(player.weapons[0]) }
   );
   return newRank > slotWithWorst.rank ? slotWithWorst.index : null;
 }
@@ -1222,12 +1309,68 @@ function tryAiGroundItemAction(player) {
   return false;
 }
 
+function isTraversableCell(x, y) {
+  if (!isWithinBounds(x, y)) return false;
+  const cellType = getCellType(x, y);
+  if (cellType === "W" || cellType === "R") return false;
+  return !getPlayerAt(x, y);
+}
+
+function buildDistanceMap(targetX, targetY, allowedPositions = new Set()) {
+  const distances = new Map();
+  const directions = [
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
+  ];
+  const allowed = new Set(allowedPositions);
+  const startKey = `${targetX},${targetY}`;
+  allowed.add(startKey);
+  distances.set(startKey, 0);
+  const queue = [{ x: targetX, y: targetY }];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) break;
+    const currentKey = `${current.x},${current.y}`;
+    const currentDistance = distances.get(currentKey) ?? 0;
+    directions.forEach((direction) => {
+      const nextX = current.x + direction.dx;
+      const nextY = current.y + direction.dy;
+      if (!isWithinBounds(nextX, nextY)) return;
+      const cellType = getCellType(nextX, nextY);
+      if (cellType === "W" || cellType === "R") return;
+      const key = `${nextX},${nextY}`;
+      if (distances.has(key)) return;
+      if (getPlayerAt(nextX, nextY) && !allowed.has(key)) return;
+      distances.set(key, currentDistance + 1);
+      queue.push({ x: nextX, y: nextY });
+    });
+  }
+
+  return distances;
+}
+
 function getAiMove(player) {
   const enemies = state.players.filter(
     (target) => target.status === "Alive" && target.id !== player.id
   );
   const target = getClosestTarget(player, enemies);
   const itemTarget = getAiBestItemTarget(player);
+  const allowedPositions = new Set([`${player.x},${player.y}`]);
+  const enemyDistances = target
+    ? buildDistanceMap(target.x, target.y, allowedPositions)
+    : null;
+  const itemDistances = itemTarget
+    ? buildDistanceMap(itemTarget.item.x, itemTarget.item.y, allowedPositions)
+    : null;
+  const itemDistanceFromPlayer = itemTarget
+    ? itemDistances?.get(`${player.x},${player.y}`) ?? null
+    : null;
+  const prioritizeNearbyLoot = itemTarget
+    && itemDistanceFromPlayer !== null
+    && itemDistanceFromPlayer <= 4;
   const directions = [
     { dx: 0, dy: -1 },
     { dx: 0, dy: 1 },
@@ -1236,13 +1379,6 @@ function getAiMove(player) {
   ];
   const maxSteps = Math.max(0, state.moves);
   if (maxSteps <= 0) return null;
-
-  const hasTraversableCell = (x, y) => {
-    if (!isWithinBounds(x, y)) return false;
-    const cellType = getCellType(x, y);
-    if (cellType === "W" || cellType === "R") return false;
-    return !getPlayerAt(x, y);
-  };
 
   const getThreatScore = (x, y) => {
     if (!enemies.length) return 0;
@@ -1273,17 +1409,18 @@ function getAiMove(player) {
   };
 
   const getCellScore = (x, y) => {
-    const enemyDistance = target
-      ? Math.abs(target.x - x) + Math.abs(target.y - y)
-      : null;
-    const itemDistance = itemTarget
-      ? Math.abs(itemTarget.item.x - x) + Math.abs(itemTarget.item.y - y)
-      : null;
+    const key = `${x},${y}`;
+    const enemyDistance = enemyDistances?.get(key) ?? null;
+    const itemDistance = itemDistances?.get(key) ?? null;
     const threatPenalty = getThreatScore(x, y);
     const lootScore = getLootScore(x, y);
     let score = 0;
-    if (enemyDistance !== null) score += 6 - enemyDistance;
-    if (itemTarget) score += itemTarget.value * 2 - itemDistance;
+    if (enemyDistance !== null) {
+      score += (prioritizeNearbyLoot ? 2 : 6) - enemyDistance;
+    }
+    if (itemTarget && itemDistance !== null) {
+      score += itemTarget.value * (prioritizeNearbyLoot ? 4 : 2) - itemDistance;
+    }
     score += lootScore * 2;
     score -= threatPenalty * 5;
     return score;
@@ -1311,7 +1448,7 @@ function getAiMove(player) {
     directions.forEach((direction) => {
       const nextX = current.x + direction.dx;
       const nextY = current.y + direction.dy;
-      if (!hasTraversableCell(nextX, nextY)) return;
+      if (!isTraversableCell(nextX, nextY)) return;
       const key = `${nextX},${nextY}`;
       if (visited.has(key)) return;
       const firstMove = current.firstMove ?? direction;
@@ -1329,11 +1466,36 @@ function getAiMove(player) {
   return bestMoves[roll(0, bestMoves.length - 1)];
 }
 
+function getAiMoveForAttack(player, currentScore) {
+  const directions = [
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 },
+  ];
+  let bestMove = null;
+  let bestScore = currentScore;
+  directions.forEach((direction) => {
+    const nextX = player.x + direction.dx;
+    const nextY = player.y + direction.dy;
+    if (!isTraversableCell(nextX, nextY)) return;
+    const attackOption = getAiAttackOption(player, { x: nextX, y: nextY });
+    if (!attackOption) return;
+    if (attackOption.score > bestScore + 0.15) {
+      bestScore = attackOption.score;
+      bestMove = direction;
+    }
+  });
+  return bestMove;
+}
+
 async function runAiTurn(turnId) {
   const started = await waitAiDelay(turnId);
   if (!started) return;
+  if (isVictoryActive()) return;
   let acted = false;
   while (isAiTurn(turnId)) {
+    if (isVictoryActive()) return;
     const player = getCurrentPlayer();
     const criticalLimb = ["leftArmArmor", "rightArmArmor", "leftLegArmor", "rightLegArmor"]
       .some((key) => player[key] < 0);
@@ -1350,6 +1512,15 @@ async function runAiTurn(turnId) {
       continue;
     }
     const attack = getAiAttackOption(player);
+    if (attack && state.moves > 0) {
+      const moveForAttack = getAiMoveForAttack(player, attack.score);
+      if (moveForAttack) {
+        attemptMove(moveForAttack.dx, moveForAttack.dy);
+        acted = true;
+        if (!(await waitAiDelay(turnId))) return;
+        continue;
+      }
+    }
     if (attack) {
       executeAttack(attack.slot, attack.target.x, attack.target.y);
       acted = true;
@@ -1408,6 +1579,7 @@ function calculateWeaponPoints(player) {
 
 function handleMove(direction) {
   if (isCurrentPlayerAI()) return;
+  if (isVictoryActive()) return;
   if (state.attackMode) {
     logEvent("log.cancelTargetMove");
     return;
@@ -1425,6 +1597,7 @@ function handleMove(direction) {
 function handleHotkeys(event) {
   if (event.repeat) return;
   if (isCurrentPlayerAI()) return;
+  if (isVictoryActive()) return;
   if (elements.rulesModal?.classList.contains("is-visible")) return;
   const activeTag = document.activeElement?.tagName?.toLowerCase();
   if (["input", "select", "textarea"].includes(activeTag)) return;
@@ -1551,6 +1724,13 @@ function createCratePrize(rollValue, x, y) {
         quantity: 6,
         additional: "Pistol",
       }, x, y);
+      addGroundItem({
+        displayKey: "items.ammo",
+        displayParams: { weapon: "Bazooka", count: 2 },
+        category: "Ammo",
+        quantity: 2,
+        additional: "Bazooka",
+      }, x, y);
       logEvent("log.crateAmmoPack");
       break;
     case 3:
@@ -1671,6 +1851,7 @@ function spawnCrate() {
 
 function enterAttackMode(slot) {
   if (isCurrentPlayerAI()) return;
+  if (isVictoryActive()) return;
   const player = getCurrentPlayer();
   if (player.weapons[slot].weaponName === "None") {
     logEvent("log.noWeaponSlot");
@@ -1690,6 +1871,7 @@ function enterAttackMode(slot) {
 
 function handleCellClick(x, y) {
   if (isCurrentPlayerAI()) return;
+  if (isVictoryActive()) return;
   if (!state.attackMode) return;
   const slot = state.attackMode.slot;
   state.attackMode = null;
@@ -1853,6 +2035,9 @@ function handleDeath(attacker, target, part) {
   target.deaths += 1;
   if (attacker) {
     attacker.frags += 1;
+    if (!state.victory && attacker.frags >= state.fragLimit) {
+      showVictoryModal(attacker);
+    }
   }
   logEvent("log.killedReport", { targetId: target.id, part });
   dropPlayerLoot(target);
@@ -2065,6 +2250,7 @@ function useMedkit(allowAi = false) {
 
 function endTurn(force = false) {
   if (isCurrentPlayerAI() && !force) return;
+  if (isVictoryActive() && !force) return;
   state.attackMode = null;
   advanceTurn();
   startTurn();
@@ -2244,6 +2430,10 @@ function getCurrentPlayer() {
 
 function isCurrentPlayerAI() {
   return Boolean(getCurrentPlayer()?.isAI);
+}
+
+function isVictoryActive() {
+  return Boolean(state.victory);
 }
 
 function getPlayerAt(x, y) {
@@ -2765,6 +2955,7 @@ function loadGame() {
   Object.assign(state, data);
   state.rng = mulberry32(state.seed);
   state.aiTurnId += 1;
+  state.victory = null;
   state.players.forEach((player, index) => {
     if (!player.nameKey) {
       player.nameKey = player.name || PLAYER_PRESETS[index]?.nameKey || "Red";
@@ -2774,6 +2965,7 @@ function loadGame() {
   logEvent("log.loadDone");
   elements.mapSelect.value = state.mapName;
   elements.crateInterval.value = state.crateInterval || 3;
+  elements.fragLimit.value = state.fragLimit || 10;
   elements.playerCount.value = String(state.players.length);
   setLanguage(state.language);
   hideStartScreen();
