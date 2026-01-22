@@ -36,6 +36,22 @@
             <span data-i18n="start.mapLabel">Карта</span>
             <select id="mapSelect"></select>
           </label>
+          <div class="map-generated-settings is-hidden" id="generatedMapSettings">
+            <label>
+              <span data-i18n="start.seedLabel">Seed</span>
+              <div class="seed-row">
+                <input id="mapSeed" type="text" placeholder="12345" />
+                <button type="button" class="ghost" id="mapSeedRandom" data-i18n="start.seedRandom">Случайный</button>
+              </div>
+            </label>
+            <label>
+              <span data-i18n="start.wallThicknessLabel">Толщина внешних стен</span>
+              <div class="wall-thickness-row">
+                <input id="wallThickness" type="range" min="1" max="8" value="1" />
+                <span class="range-value" id="wallThicknessValue">1</span>
+              </div>
+            </label>
+          </div>
           <div class="map-preview" id="mapPreview"></div>
           <div class="map-legend">
             <span><span class="legend-dot wall"></span> <span data-i18n="start.legendWalls">Стены</span></span>
