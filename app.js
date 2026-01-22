@@ -2,6 +2,9 @@ const MAX_LOG = 400;
 const GRID_SIZE = 20;
 const INVENTORY_SIZE = 4;
 const AI_ACTION_DELAY = 1000;
+const GENERATED_MAP_NAME = "Generated";
+const GENERATED_DEFAULT_SEED = "12345";
+const GENERATED_DEFAULT_WALL_THICKNESS = 1;
 const WEAPON_CAPACITY = {
   Pistol: 3,
   Shotgun: 2,
@@ -28,6 +31,9 @@ const translations = {
       rulesButton: "Правила и инструкции",
       mapTitle: "Выбор карты",
       mapLabel: "Карта",
+      seedLabel: "Seed",
+      seedRandom: "Случайный",
+      wallThicknessLabel: "Толщина внешних стен",
       legendWalls: "Стены",
       legendRiver: "Река",
       legendSpawn: "Спавн",
@@ -65,6 +71,7 @@ const translations = {
       Riverside: "Речная долина",
       Rooms: "Комнаты",
       Flower: "Цветок",
+      Generated: "Сгенерированная",
     },
     players: {
       Red: "Красный",
@@ -269,6 +276,9 @@ const translations = {
       rulesButton: "Rules & instructions",
       mapTitle: "Map selection",
       mapLabel: "Map",
+      seedLabel: "Seed",
+      seedRandom: "Randomize",
+      wallThicknessLabel: "Outer wall thickness",
       legendWalls: "Walls",
       legendRiver: "River",
       legendSpawn: "Spawn",
@@ -306,6 +316,7 @@ const translations = {
       Riverside: "Riverside",
       Rooms: "Rooms",
       Flower: "Flower",
+      Generated: "Generated",
     },
     players: {
       Red: "Red",
@@ -519,6 +530,8 @@ const state = {
   rng: null,
   crateInterval: 3,
   fragLimit: 10,
+  mapSeed: GENERATED_DEFAULT_SEED,
+  wallThickness: GENERATED_DEFAULT_WALL_THICKNESS,
   lastActionMessage: null,
   nextItemId: 1,
   language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
@@ -625,6 +638,7 @@ const mapLibrary = {
   Riverside: buildFixedMap("Riverside", RIVERSIDE_LAYOUT),
   Rooms: buildFixedMap("Rooms", ROOMS_LAYOUT),
   Flower: buildFixedMap("Flower", FLOWER_LAYOUT),
+  Generated: createEmptyMap(GENERATED_MAP_NAME),
 };
 
 const elements = {
@@ -650,6 +664,11 @@ const elements = {
   useMedkit: document.getElementById("useMedkit"),
   boardHeader: document.getElementById("boardHeader"),
   mapPreview: document.getElementById("mapPreview"),
+  mapSeed: document.getElementById("mapSeed"),
+  mapSeedRandom: document.getElementById("mapSeedRandom"),
+  wallThickness: document.getElementById("wallThickness"),
+  wallThicknessValue: document.getElementById("wallThicknessValue"),
+  generatedMapSettings: document.getElementById("generatedMapSettings"),
   rulesModal: document.getElementById("rulesModal"),
   rulesContent: document.getElementById("rulesContent"),
   rulesTitle: document.getElementById("rulesTitle"),
@@ -711,6 +730,12 @@ function updateMapOptions() {
   Array.from(elements.mapSelect.options).forEach((option) => {
     option.textContent = t(`maps.${option.value}`);
   });
+}
+
+function updateGeneratedSettingsVisibility() {
+  if (!elements.generatedMapSettings) return;
+  const isGenerated = elements.mapSelect.value === GENERATED_MAP_NAME;
+  elements.generatedMapSettings.classList.toggle("is-hidden", !isGenerated);
 }
 
 function renderRulesContent() {
@@ -843,6 +868,14 @@ function snapshotAvatarState(player) {
     health: player.health,
   };
 }
+
+function createEmptyMap(name) {
+  return {
+    name,
+    grid: Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(".")),
+  };
+}
+
 function buildFixedMap(name, layout) {
   const rows = layout
     .trim()
@@ -854,6 +887,348 @@ function buildFixedMap(name, layout) {
   return { name, grid };
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function hashSeed(seed) {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function parseSeedValue(seed) {
+  if (typeof seed === "number") {
+    return seed >>> 0;
+  }
+  const normalized = String(seed).trim();
+  if (!normalized) {
+    return Number(GENERATED_DEFAULT_SEED);
+  }
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized) >>> 0;
+  }
+  return hashSeed(normalized);
+}
+
+function getGeneratedSeedInput() {
+  const raw = elements.mapSeed?.value?.trim();
+  return raw || state.mapSeed || GENERATED_DEFAULT_SEED;
+}
+
+function getSelectedWallThickness() {
+  const raw = Number(elements.wallThickness?.value ?? state.wallThickness ?? GENERATED_DEFAULT_WALL_THICKNESS);
+  return clampNumber(raw || GENERATED_DEFAULT_WALL_THICKNESS, 1, 8);
+}
+
+function applyBorderWalls(grid, thickness) {
+  for (let y = 0; y < GRID_SIZE; y += 1) {
+    for (let x = 0; x < GRID_SIZE; x += 1) {
+      if (
+        x < thickness ||
+        y < thickness ||
+        x >= GRID_SIZE - thickness ||
+        y >= GRID_SIZE - thickness
+      ) {
+        grid[y][x] = "W";
+      }
+    }
+  }
+}
+
+function isPassable(cellType) {
+  return cellType !== "W" && cellType !== "R";
+}
+
+function isLineOfSightClear(a, b, grid) {
+  if (a.x === b.x) {
+    const start = Math.min(a.y, b.y) + 1;
+    const end = Math.max(a.y, b.y);
+    for (let y = start; y < end; y += 1) {
+      if (!isPassable(grid[y][a.x])) return false;
+    }
+    return true;
+  }
+  if (a.y === b.y) {
+    const start = Math.min(a.x, b.x) + 1;
+    const end = Math.max(a.x, b.x);
+    for (let x = start; x < end; x += 1) {
+      if (!isPassable(grid[a.y][x])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+function generateGeneratedMap(seedValue, wallThicknessValue) {
+  const seed = parseSeedValue(seedValue);
+  const rng = mulberry32(seed);
+  const rand = () => rng();
+  const randInt = (min, max) => Math.floor(rand() * (max - min + 1)) + min;
+  const thickness = clampNumber(wallThicknessValue, 1, 8);
+  const grid = createEmptyMap(GENERATED_MAP_NAME).grid;
+  const minBound = thickness;
+  const maxBound = GRID_SIZE - thickness - 1;
+  const interiorSize = maxBound - minBound + 1;
+
+  const boundedSize = (min, max, padding = 1) => {
+    const limit = Math.max(2, Math.min(max, interiorSize - padding));
+    const floor = Math.min(min, limit);
+    return randInt(floor, limit);
+  };
+
+  const boundedStart = (maxStart) => {
+    const startMax = Math.max(minBound, maxStart);
+    return randInt(minBound, startMax);
+  };
+
+  const inInterior = (x, y) => x >= minBound && x <= maxBound && y >= minBound && y <= maxBound;
+  const setCell = (x, y, value) => {
+    if (!inInterior(x, y)) return;
+    if (value === "R" && grid[y][x] === "W") return;
+    grid[y][x] = value;
+  };
+
+  applyBorderWalls(grid, thickness);
+
+  const addWallSegment = (x, y, dx, dy, length, segmentThickness) => {
+    for (let step = 0; step < length; step += 1) {
+      for (let offset = 0; offset < segmentThickness; offset += 1) {
+        const drawX = x + dx * step + (dy !== 0 ? offset : 0);
+        const drawY = y + dy * step + (dx !== 0 ? offset : 0);
+        setCell(drawX, drawY, "W");
+      }
+    }
+    const gapStart = 2;
+    const gapEnd = length - 3;
+    if (gapEnd >= gapStart) {
+      const gapCount = randInt(1, 2);
+      for (let gap = 0; gap < gapCount; gap += 1) {
+        const gapIndex = randInt(gapStart, gapEnd);
+        for (let offset = 0; offset < segmentThickness; offset += 1) {
+          const gapX = x + dx * gapIndex + (dy !== 0 ? offset : 0);
+          const gapY = y + dy * gapIndex + (dx !== 0 ? offset : 0);
+          if (inInterior(gapX, gapY)) {
+            grid[gapY][gapX] = ".";
+          }
+        }
+      }
+    }
+  };
+
+  const addWallBlock = (x, y, width, height) => {
+    for (let dy = 0; dy < height; dy += 1) {
+      for (let dx = 0; dx < width; dx += 1) {
+        setCell(x + dx, y + dy, "W");
+      }
+    }
+  };
+
+  const segments = randInt(4, 6);
+  for (let index = 0; index < segments; index += 1) {
+    const horizontal = rand() > 0.5;
+    const length = boundedSize(4, 13);
+    const segmentThickness = rand() > 0.7 ? 2 : 1;
+    const startX = boundedStart(maxBound - (horizontal ? length : 0));
+    const startY = boundedStart(maxBound - (horizontal ? 0 : length));
+    addWallSegment(startX, startY, horizontal ? 1 : 0, horizontal ? 0 : 1, length, segmentThickness);
+  }
+
+  const blocks = randInt(3, 5);
+  for (let index = 0; index < blocks; index += 1) {
+    const width = boundedSize(2, 5, 2);
+    const height = boundedSize(2, 5, 2);
+    const startX = boundedStart(maxBound - width);
+    const startY = boundedStart(maxBound - height);
+    addWallBlock(startX, startY, width, height);
+  }
+
+  const clearings = randInt(2, 3);
+  for (let index = 0; index < clearings; index += 1) {
+    const width = boundedSize(3, 6, 2);
+    const height = boundedSize(3, 6, 2);
+    const startX = boundedStart(maxBound - width);
+    const startY = boundedStart(maxBound - height);
+    for (let dy = 0; dy < height; dy += 1) {
+      for (let dx = 0; dx < width; dx += 1) {
+        if (inInterior(startX + dx, startY + dy)) {
+          grid[startY + dy][startX + dx] = ".";
+        }
+      }
+    }
+  }
+
+  const rivers = randInt(1, 2);
+  for (let riverIndex = 0; riverIndex < rivers; riverIndex += 1) {
+    let x = boundedStart(maxBound - 1);
+    let y = boundedStart(maxBound - 1);
+    const length = boundedSize(5, 12, 1);
+    let dx = rand() > 0.5 ? 1 : 0;
+    let dy = dx === 1 ? 0 : 1;
+
+    for (let step = 0; step < length; step += 1) {
+      setCell(x, y, "R");
+      if (rand() > 0.7) {
+        setCell(x + (dy !== 0 ? 1 : 0), y + (dx !== 0 ? 1 : 0), "R");
+      }
+      if (rand() > 0.75) {
+        const turn = rand() > 0.5 ? 1 : -1;
+        const nextDx = dy * turn;
+        const nextDy = dx * -turn;
+        dx = nextDx;
+        dy = nextDy;
+      }
+      const nextX = x + dx;
+      const nextY = y + dy;
+      if (!inInterior(nextX, nextY) || grid[nextY][nextX] === "W") {
+        dx = dy !== 0 ? (rand() > 0.5 ? 1 : -1) : 0;
+        dy = dx !== 0 ? 0 : (rand() > 0.5 ? 1 : -1);
+      }
+      x = clampNumber(x + dx, minBound, maxBound);
+      y = clampNumber(y + dy, minBound, maxBound);
+    }
+  }
+
+  const getPassableCells = () => {
+    const cells = [];
+    for (let y = minBound; y <= maxBound; y += 1) {
+      for (let x = minBound; x <= maxBound; x += 1) {
+        if (isPassable(grid[y][x])) {
+          cells.push({ x, y });
+        }
+      }
+    }
+    return cells;
+  };
+
+  const floodFill = (start) => {
+    const visited = Array(GRID_SIZE * GRID_SIZE).fill(false);
+    const queue = [start];
+    visited[start.y * GRID_SIZE + start.x] = true;
+    while (queue.length) {
+      const current = queue.shift();
+      const neighbors = [
+        { x: current.x + 1, y: current.y },
+        { x: current.x - 1, y: current.y },
+        { x: current.x, y: current.y + 1 },
+        { x: current.x, y: current.y - 1 },
+      ];
+      neighbors.forEach((neighbor) => {
+        if (!inInterior(neighbor.x, neighbor.y)) return;
+        if (!isPassable(grid[neighbor.y][neighbor.x])) return;
+        const index = neighbor.y * GRID_SIZE + neighbor.x;
+        if (visited[index]) return;
+        visited[index] = true;
+        queue.push(neighbor);
+      });
+    }
+    return visited;
+  };
+
+  const connectIslands = () => {
+    let passableCells = getPassableCells();
+    if (!passableCells.length) {
+      return;
+    }
+    let reachable = floodFill(passableCells[0]);
+    let unreachable = passableCells.filter((cell) => !reachable[cell.y * GRID_SIZE + cell.x]);
+    let attempts = 0;
+
+    while (unreachable.length && attempts < 20) {
+      const origin = unreachable[randInt(0, unreachable.length - 1)];
+      const destination = passableCells[randInt(0, passableCells.length - 1)];
+      const horizontalFirst = rand() > 0.5;
+      if (horizontalFirst) {
+        const stepX = origin.x < destination.x ? 1 : -1;
+        for (let x = origin.x; x !== destination.x + stepX; x += stepX) {
+          if (inInterior(x, origin.y)) {
+            grid[origin.y][x] = ".";
+          }
+        }
+        const stepY = origin.y < destination.y ? 1 : -1;
+        for (let y = origin.y; y !== destination.y + stepY; y += stepY) {
+          if (inInterior(destination.x, y)) {
+            grid[y][destination.x] = ".";
+          }
+        }
+      } else {
+        const stepY = origin.y < destination.y ? 1 : -1;
+        for (let y = origin.y; y !== destination.y + stepY; y += stepY) {
+          if (inInterior(origin.x, y)) {
+            grid[y][origin.x] = ".";
+          }
+        }
+        const stepX = origin.x < destination.x ? 1 : -1;
+        for (let x = origin.x; x !== destination.x + stepX; x += stepX) {
+          if (inInterior(x, destination.y)) {
+            grid[destination.y][x] = ".";
+          }
+        }
+      }
+      passableCells = getPassableCells();
+      reachable = floodFill(passableCells[0]);
+      unreachable = passableCells.filter((cell) => !reachable[cell.y * GRID_SIZE + cell.x]);
+      attempts += 1;
+    }
+  };
+
+  connectIslands();
+
+  const shuffle = (array) => {
+    for (let index = array.length - 1; index > 0; index -= 1) {
+      const swapIndex = randInt(0, index);
+      [array[index], array[swapIndex]] = [array[swapIndex], array[index]];
+    }
+  };
+
+  const placeSpawns = () => {
+    const quadrants = [
+      (x, y) => x <= (GRID_SIZE - 1) / 2 && y <= (GRID_SIZE - 1) / 2,
+      (x, y) => x > (GRID_SIZE - 1) / 2 && y <= (GRID_SIZE - 1) / 2,
+      (x, y) => x <= (GRID_SIZE - 1) / 2 && y > (GRID_SIZE - 1) / 2,
+      (x, y) => x > (GRID_SIZE - 1) / 2 && y > (GRID_SIZE - 1) / 2,
+    ];
+    const spawns = [];
+    const minDistance = 6;
+
+    const tryPlaceSpawn = (filter) => {
+      const candidates = [];
+      for (let y = minBound; y <= maxBound; y += 1) {
+        for (let x = minBound; x <= maxBound; x += 1) {
+          if (!filter(x, y)) continue;
+          if (!isPassable(grid[y][x])) continue;
+          candidates.push({ x, y });
+        }
+      }
+      shuffle(candidates);
+      return candidates.find((candidate) => {
+        if (spawns.some((spawn) => Math.abs(spawn.x - candidate.x) + Math.abs(spawn.y - candidate.y) < minDistance)) {
+          return false;
+        }
+        if (spawns.some((spawn) => isLineOfSightClear(spawn, candidate, grid))) {
+          return false;
+        }
+        return true;
+      });
+    };
+
+    for (let index = 0; index < 4; index += 1) {
+      const spawn = tryPlaceSpawn(quadrants[index]) || tryPlaceSpawn(() => true);
+      if (spawn) {
+        grid[spawn.y][spawn.x] = "S";
+        spawns.push(spawn);
+      }
+    }
+  };
+
+  placeSpawns();
+
+  return { name: GENERATED_MAP_NAME, grid };
+}
+
 function init() {
   Object.keys(mapLibrary).forEach((mapName) => {
     const option = document.createElement("option");
@@ -862,7 +1237,35 @@ function init() {
     elements.mapSelect.appendChild(option);
   });
 
-  elements.mapSelect.addEventListener("change", () => renderMapPreview());
+  elements.mapSelect.addEventListener("change", () => {
+    updateGeneratedSettingsVisibility();
+    renderMapPreview();
+  });
+  if (elements.mapSeed) {
+    elements.mapSeed.addEventListener("input", () => {
+      state.mapSeed = getGeneratedSeedInput();
+      renderMapPreview();
+    });
+  }
+  if (elements.mapSeedRandom) {
+    elements.mapSeedRandom.addEventListener("click", () => {
+      const newSeed = Math.floor(Math.random() * 1_000_000_000);
+      state.mapSeed = String(newSeed);
+      if (elements.mapSeed) {
+        elements.mapSeed.value = state.mapSeed;
+      }
+      renderMapPreview();
+    });
+  }
+  if (elements.wallThickness) {
+    elements.wallThickness.addEventListener("input", () => {
+      state.wallThickness = getSelectedWallThickness();
+      if (elements.wallThicknessValue) {
+        elements.wallThicknessValue.textContent = String(state.wallThickness);
+      }
+      renderMapPreview();
+    });
+  }
   elements.playerCount.addEventListener("change", renderPlayerTypeList);
   elements.startGame.addEventListener("click", () => startNewGame());
   elements.newGame.addEventListener("click", showStartScreen);
@@ -911,6 +1314,7 @@ function init() {
 
   buildGrid();
   buildMapPreviewGrid();
+  updateGeneratedSettingsVisibility();
   renderMapPreview();
   setLanguage(state.language);
   showStartScreen();
@@ -986,13 +1390,19 @@ function startNewGame(keepMapSelection = false) {
   }
   const mapName = elements.mapSelect.value || "Maze";
   state.mapName = mapName;
-  state.map = cloneMap(mapLibrary[mapName]);
+  if (mapName === GENERATED_MAP_NAME) {
+    state.mapSeed = getGeneratedSeedInput();
+    state.wallThickness = getSelectedWallThickness();
+    state.map = cloneMap(generateGeneratedMap(state.mapSeed, state.wallThickness));
+  } else {
+    state.map = cloneMap(mapLibrary[mapName]);
+  }
 
   const count = Number(elements.playerCount.value);
   const playerTypes = getPlayerTypeSelections(count);
   state.players = createPlayers(count, playerTypes);
 
-  state.seed = Date.now();
+  state.seed = mapName === GENERATED_MAP_NAME ? parseSeedValue(state.mapSeed) : Date.now();
   state.rng = mulberry32(state.seed);
   state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 3);
   state.fragLimit = Math.max(1, Number(elements.fragLimit.value) || 10);
@@ -1009,9 +1419,19 @@ function showStartScreen() {
   if (state.mapName) {
     elements.mapSelect.value = state.mapName;
   }
+  if (elements.mapSeed) {
+    elements.mapSeed.value = state.mapSeed || GENERATED_DEFAULT_SEED;
+  }
+  if (elements.wallThickness) {
+    elements.wallThickness.value = String(state.wallThickness || GENERATED_DEFAULT_WALL_THICKNESS);
+  }
+  if (elements.wallThicknessValue) {
+    elements.wallThicknessValue.textContent = String(state.wallThickness || GENERATED_DEFAULT_WALL_THICKNESS);
+  }
   if (elements.fragLimit) {
     elements.fragLimit.value = String(state.fragLimit || 10);
   }
+  updateGeneratedSettingsVisibility();
   renderMapPreview();
   renderPlayerTypeList();
 }
@@ -1041,7 +1461,10 @@ function renderMapPreview() {
   previewCells.forEach((cell) => {
     cell.className = "preview-cell";
   });
-  const map = mapLibrary[mapName];
+  const map =
+    mapName === GENERATED_MAP_NAME
+      ? generateGeneratedMap(getGeneratedSeedInput(), getSelectedWallThickness())
+      : mapLibrary[mapName];
   if (!map) return;
   map.grid.forEach((row, y) => {
     row.forEach((cellType, x) => {
@@ -3160,6 +3583,12 @@ function loadGame() {
   }
   const data = JSON.parse(payload);
   Object.assign(state, data);
+  if (!state.mapSeed) {
+    state.mapSeed = GENERATED_DEFAULT_SEED;
+  }
+  if (!state.wallThickness) {
+    state.wallThickness = GENERATED_DEFAULT_WALL_THICKNESS;
+  }
   state.rng = mulberry32(state.seed);
   state.aiTurnId += 1;
   state.victory = null;

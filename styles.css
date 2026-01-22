@@ -160,6 +160,37 @@ body.start-mode .start-screen {
   width: max-content;
 }
 
+.map-generated-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.map-generated-settings.is-hidden {
+  display: none;
+}
+
+.seed-row,
+.wall-thickness-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seed-row input {
+  flex: 1;
+}
+
+.wall-thickness-row input[type="range"] {
+  flex: 1;
+}
+
+.range-value {
+  font-size: 12px;
+  color: #9aa4b2;
+  min-width: 18px;
+  text-align: center;
+}
+
 .map-preview .preview-cell {
   width: 9px;
   height: 9px;
