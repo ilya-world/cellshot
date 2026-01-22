@@ -1255,8 +1255,11 @@ function getAiItemValue(item, player) {
     const currentRanks = player.weapons.map((weapon) => getWeaponEffectiveRank(weapon));
     const hasEmptySlot = player.weapons.some((weapon) => weapon.weaponName === "None");
     const bestCurrent = Math.max(...currentRanks);
+    const worstCurrent = Math.min(...currentRanks);
     if (hasEmptySlot) return 3 + newEffectiveRank;
-    return newEffectiveRank > bestCurrent ? 3 + (newEffectiveRank - bestCurrent) : 0;
+    if (newEffectiveRank <= worstCurrent) return 0;
+    const baseValue = newEffectiveRank > bestCurrent ? 3 : 2;
+    return baseValue + (newEffectiveRank - worstCurrent);
   }
   if (item.category === "Ammo") {
     const weapon = player.weapons.find((entry) => entry.weaponName === item.additional);
