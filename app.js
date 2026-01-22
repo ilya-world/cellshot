@@ -230,10 +230,10 @@ const translations = {
       outOfAmmo: "Патроны закончились.",
       noTarget: "В этой клетке нет цели.",
       shotHit: "Выстрел {shot}: попадание (шанс {chance}%), {location}.",
-      shotMiss: "Выстрел {shot}: промах (шанс {chance}%).",
+      shotMiss: "Выстрел {shot}: промах (шанс {chance}%). {attacker} стрелял в {target} из {weapon}.",
       locationRoll: "бросок {bodyRoll} → {part}",
       locationRollWithPart: "бросок {bodyRoll}, доп. {partRoll} → {part}",
-      killedReport: "{target} погиб (попадание в {part}).",
+      killedReport: "💀 {target} погиб (попадание в {part}).",
       attackReport: "{attacker} атакует {target}: {details}",
       dropWeapon: "{weapon} выброшен.",
       dropWeaponSlot: "{weapon} выброшен из слота {slot}.",
@@ -471,10 +471,10 @@ const translations = {
       outOfAmmo: "Out of ammo.",
       noTarget: "No target on that cell.",
       shotHit: "Shot {shot}: hit (chance {chance}%), {location}.",
-      shotMiss: "Shot {shot}: missed (chance {chance}%).",
+      shotMiss: "Shot {shot}: missed (chance {chance}%). {attacker} shot {target} with {weapon}.",
       locationRoll: "location roll {bodyRoll} → {part}",
       locationRollWithPart: "location roll {bodyRoll}, part roll {partRoll} → {part}",
-      killedReport: "{target} died (hit {part}).",
+      killedReport: "💀 {target} died (hit {part}).",
       attackReport: "{attacker} attacked {target}: {details}",
       dropWeapon: "{weapon} dropped.",
       dropWeaponSlot: "{weapon} dropped from slot {slot}.",
@@ -755,6 +755,12 @@ function getPlayerLabelById(playerId) {
   return player ? getPlayerLabel(player) : "";
 }
 
+function getStyledPlayerLabelById(playerId) {
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player) return "";
+  return `<span class="player-name" style="color: ${player.color}">${getPlayerLabel(player)}</span>`;
+}
+
 function getPlayerColorById(playerId) {
   const player = state.players.find((entry) => entry.id === playerId);
   return player?.color || "#1f2937";
@@ -812,6 +818,14 @@ function resolveLogVars(vars = {}) {
   return resolved;
 }
 
+function resolveLogVarsForAction(vars = {}) {
+  const resolved = resolveLogVars(vars);
+  if (vars.playerId) resolved.player = getStyledPlayerLabelById(vars.playerId);
+  if (vars.attackerId) resolved.attacker = getStyledPlayerLabelById(vars.attackerId);
+  if (vars.targetId) resolved.target = getStyledPlayerLabelById(vars.targetId);
+  return resolved;
+}
+
 function getHitChance(distance, penalty) {
   const threshold = distance + penalty;
   const hits = Math.max(0, 7 - threshold);
@@ -826,6 +840,7 @@ function snapshotAvatarState(player) {
     rightArmArmor: player.rightArmArmor,
     leftLegArmor: player.leftLegArmor,
     rightLegArmor: player.rightLegArmor,
+    health: player.health,
   };
 }
 function buildFixedMap(name, layout) {
@@ -2026,9 +2041,18 @@ function executeAttack(slot, targetX, targetY) {
         targetBefore,
         targetAfter,
       });
-      if (hitInfo.killed) break;
+      if (hitInfo.killed) {
+        logEvent("log.killedReport", { targetId: target.id, part: hitInfo.killPart });
+        break;
+      }
     } else {
-      logEvent("log.shotMiss", { shot: shot + 1, chance: hitChance });
+      logEvent("log.shotMiss", {
+        shot: shot + 1,
+        chance: hitChance,
+        attackerId: attacker.id,
+        targetId: target.id,
+        weapon: weapon.weaponName,
+      });
     }
   }
 
@@ -2053,17 +2077,17 @@ function applyHit(attacker, target, weaponName) {
   }
 
   const wasAlive = target.status === "Alive";
-  if (weaponName === "Bazooka") {
-    applyBazookaDamage(target, part, attacker);
-  } else {
-    applyDamage(target, part, attacker);
-  }
+  const hitResult =
+    weaponName === "Bazooka"
+      ? applyBazookaDamage(target, part, attacker)
+      : applyDamage(target, part, attacker);
   const killed = wasAlive && target.status === "Dead";
   return {
     part,
     bodyRoll: bodyCheck,
     partRoll: partCheck,
     killed,
+    killPart: hitResult?.part || part,
   };
 }
 
@@ -2077,12 +2101,14 @@ function applyDamage(target, part, attacker) {
       }
       if (target.health <= 0) {
         handleDeath(attacker, target, part);
+        return { killed: true, part };
       }
       break;
     case "Head":
       target.headArmor -= 1;
       if (target.headArmor < 0) {
         handleDeath(attacker, target, part);
+        return { killed: true, part };
       }
       break;
     case "Left Arm":
@@ -2100,23 +2126,29 @@ function applyDamage(target, part, attacker) {
     default:
       break;
   }
+  return { killed: false, part: null };
 }
 
 function applyBazookaDamage(target, part, attacker) {
-  applyDamageSteps(target, part, attacker, 3);
-  if (target.status === "Dead") return;
+  const primaryResult = applyDamageSteps(target, part, attacker, 3);
+  if (primaryResult.killed) return primaryResult;
   const adjacentParts = getAdjacentParts(part);
-  adjacentParts.forEach((adjacent) => {
-    if (target.status === "Dead") return;
-    applyDamageSteps(target, adjacent, attacker, 1);
-  });
+  for (const adjacent of adjacentParts) {
+    const result = applyDamageSteps(target, adjacent, attacker, 1);
+    if (result.killed) return result;
+  }
+  return { killed: false, part: null };
 }
 
 function applyDamageSteps(target, part, attacker, count) {
   for (let i = 0; i < count; i += 1) {
-    if (target.status === "Dead") return;
-    applyDamage(target, part, attacker);
+    if (target.status === "Dead") return { killed: true, part: null };
+    const result = applyDamage(target, part, attacker);
+    if (result.killed) {
+      return result;
+    }
   }
+  return { killed: false, part: null };
 }
 
 function getAdjacentParts(part) {
@@ -2141,7 +2173,6 @@ function handleDeath(attacker, target, part) {
       showVictoryModal(attacker);
     }
   }
-  logEvent("log.killedReport", { targetId: target.id, part });
   dropPlayerLoot(target);
   target.x = 0;
   target.y = 0;
@@ -3033,13 +3064,13 @@ function renderLastActionEntry(entry) {
     const playerColor = getPlayerColorById(entry.vars.playerId);
     return `
       <div class="action-entry action-entry--turn" style="--player-color: ${playerColor}">
-        ${formatLogEntry(entry)}
+        ${t(entry.key, resolveLogVarsForAction(entry.vars))}
       </div>
     `;
   }
   if (entry.key === "log.shotHit" && entry.vars?.targetBefore && entry.vars?.targetAfter) {
-    const attackerLabel = getPlayerLabelById(entry.vars.attackerId);
-    const targetLabel = getPlayerLabelById(entry.vars.targetId);
+    const attackerLabel = getStyledPlayerLabelById(entry.vars.attackerId);
+    const targetLabel = getStyledPlayerLabelById(entry.vars.targetId);
     const partLabel = getArmorPartLabel(entry.vars.part);
     const weaponLabel = getWeaponLabel(entry.vars.weapon);
     const summary = t("ui.hitSummary", {
@@ -3060,16 +3091,18 @@ function renderLastActionEntry(entry) {
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.beforeHit")}</div>
             <div class="avatar">${renderAvatarParts(entry.vars.targetBefore)}</div>
+            <div class="hp-row">${renderHearts(entry.vars.targetBefore.health ?? 0)}</div>
           </div>
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
             <div class="avatar">${renderAvatarParts(entry.vars.targetAfter)}</div>
+            <div class="hp-row">${renderHearts(entry.vars.targetAfter.health ?? 0)}</div>
           </div>
         </div>
       </div>
     `;
   }
-  return `<div class="action-entry">${formatLogEntry(entry)}</div>`;
+  return `<div class="action-entry">${t(entry.key, resolveLogVarsForAction(entry.vars))}</div>`;
 }
 
 function getCellElement(x, y) {
