@@ -64,6 +64,7 @@ const translations = {
       Maze: "Лабиринт",
       Riverside: "Речная долина",
       Rooms: "Комнаты",
+      Flower: "Цветок",
     },
     players: {
       Red: "Красный",
@@ -304,6 +305,7 @@ const translations = {
       Maze: "Maze",
       Riverside: "Riverside",
       Rooms: "Rooms",
+      Flower: "Flower",
     },
     players: {
       Red: "Red",
@@ -572,6 +574,29 @@ W|||||||||||||||||||W
 W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
 `;
 
+const FLOWER_LAYOUT = `
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|S|.|.|.|.|W|W|.|.|.|.|S|W|W|W|W
+W|W|W|W|.|.|.|.|.|.|W|.|.|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|.|.|.|.|.|.|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|R|R|R|.|.|R|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|.|.|.|.|.|R|.|.|.|W|W|W|W
+W|W|W|W|W|W|.|.|.|.|.|.|R|.|W|W|W|W|W|W
+W|W|W|W|W|.|.|R|.|.|.|.|.|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|R|.|.|.|.|.|.|.|.|.|W|W|W
+W|W|W|W|.|.|.|R|.|.|R|R|R|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|.|.|.|.|.|.|.|.|.|W|W|W|W
+W|W|W|W|.|.|.|.|.|.|W|.|.|.|.|.|W|W|W|W
+W|W|W|W|S|.|.|.|.|W|W|.|.|.|.|S|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+`;
+
 const ROOMS_LAYOUT = `
 W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
 W|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|W
@@ -599,6 +624,7 @@ const mapLibrary = {
   Maze: buildFixedMap("Maze", MAZE_LAYOUT),
   Riverside: buildFixedMap("Riverside", RIVERSIDE_LAYOUT),
   Rooms: buildFixedMap("Rooms", ROOMS_LAYOUT),
+  Flower: buildFixedMap("Flower", FLOWER_LAYOUT),
 };
 
 const elements = {
