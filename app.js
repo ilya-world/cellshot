@@ -124,6 +124,12 @@ const translations = {
       destroy: "Уничтожить",
       dropItem: "Выбросить",
       slotWeapon: "Слот {slot}: {weapon}",
+      shotLabel: "Выстрел {shot}",
+      hitSummary: "{attacker} попал в {part} игрока {target} из {weapon}",
+      hitChance: "Шанс попадания {chance}%",
+      beforeHit: "До попадания",
+      afterHit: "После попадания",
+      importantItems: "Важные предметы",
       statusBadge: "{status}",
     },
     rules: {
@@ -222,8 +228,8 @@ const translations = {
       lineOfSightBlocked: "Линия огня перекрыта стеной.",
       outOfAmmo: "Патроны закончились.",
       noTarget: "В этой клетке нет цели.",
-      shotHit: "Выстрел {shot}: попадание (бросок {roll}), {location}.",
-      shotMiss: "Выстрел {shot}: промах (бросок {roll}).",
+      shotHit: "Выстрел {shot}: попадание (шанс {chance}%), {location}.",
+      shotMiss: "Выстрел {shot}: промах (шанс {chance}%).",
       locationRoll: "бросок {bodyRoll} → {part}",
       locationRollWithPart: "бросок {bodyRoll}, доп. {partRoll} → {part}",
       killedReport: "{target} погиб (попадание в {part}).",
@@ -358,6 +364,12 @@ const translations = {
       destroy: "Destroy",
       dropItem: "Drop",
       slotWeapon: "Slot {slot}: {weapon}",
+      shotLabel: "Shot {shot}",
+      hitSummary: "{attacker} hit {target}'s {part} with {weapon}",
+      hitChance: "Hit chance {chance}%",
+      beforeHit: "Before hit",
+      afterHit: "After hit",
+      importantItems: "Important items",
       statusBadge: "{status}",
     },
     rules: {
@@ -456,8 +468,8 @@ const translations = {
       lineOfSightBlocked: "Line of sight blocked by wall.",
       outOfAmmo: "Out of ammo.",
       noTarget: "No target on that cell.",
-      shotHit: "Shot {shot}: hit (roll {roll}), {location}.",
-      shotMiss: "Shot {shot}: missed (roll {roll}).",
+      shotHit: "Shot {shot}: hit (chance {chance}%), {location}.",
+      shotMiss: "Shot {shot}: missed (chance {chance}%).",
       locationRoll: "location roll {bodyRoll} → {part}",
       locationRollWithPart: "location roll {bodyRoll}, part roll {partRoll} → {part}",
       killedReport: "{target} died (hit {part}).",
@@ -717,6 +729,11 @@ function getPlayerLabelById(playerId) {
   return player ? getPlayerLabel(player) : "";
 }
 
+function getPlayerColorById(playerId) {
+  const player = state.players.find((entry) => entry.id === playerId);
+  return player?.color || "#1f2937";
+}
+
 function getWeaponLabel(weaponName) {
   return t(`weapons.${weaponName}`);
 }
@@ -767,6 +784,23 @@ function resolveLogVars(vars = {}) {
       : t("log.locationRoll", locationVars);
   }
   return resolved;
+}
+
+function getHitChance(distance, penalty) {
+  const threshold = distance + penalty;
+  const hits = Math.max(0, 7 - threshold);
+  return Math.round((hits / 6) * 100);
+}
+
+function snapshotAvatarState(player) {
+  return {
+    headArmor: player.headArmor,
+    bodyArmor: player.bodyArmor,
+    leftArmArmor: player.leftArmArmor,
+    rightArmArmor: player.rightArmArmor,
+    leftLegArmor: player.leftLegArmor,
+    rightLegArmor: player.rightLegArmor,
+  };
 }
 function buildFixedMap(name, layout) {
   const rows = layout
@@ -1944,22 +1978,31 @@ function executeAttack(slot, targetX, targetY) {
 
   const shots = ["Shotgun", "Sword"].includes(weapon.weaponName) ? 2 : 1;
   const distancePenalty = attacker.leftArmArmor < 0 || attacker.rightArmArmor < 0 ? 2 : 0;
+  const hitChance = getHitChance(distance, distancePenalty);
   for (let shot = 0; shot < shots; shot += 1) {
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
+      const targetBefore = snapshotAvatarState(target);
       const hitInfo = applyHit(attacker, target, weapon.weaponName);
+      const targetAfter = snapshotAvatarState(target);
       logEvent("log.shotHit", {
         shot: shot + 1,
-        roll: distanceCheck,
+        chance: hitChance,
         location: {
           bodyRoll: hitInfo.bodyRoll,
           partRoll: hitInfo.partRoll,
           part: hitInfo.part,
         },
+        attackerId: attacker.id,
+        targetId: target.id,
+        weapon: weapon.weaponName,
+        part: hitInfo.part,
+        targetBefore,
+        targetAfter,
       });
       if (hitInfo.killed) break;
     } else {
-      logEvent("log.shotMiss", { shot: shot + 1, roll: distanceCheck });
+      logEvent("log.shotMiss", { shot: shot + 1, chance: hitChance });
     }
   }
 
@@ -2746,11 +2789,30 @@ function renderPlayerSummary() {
   elements.playerSummary.innerHTML = state.players
     .map((player) => {
       const weaponSummary = player.weapons
-        .map((weapon, index) => t("ui.slotWeapon", {
-          slot: index + 1,
-          weapon: getWeaponLabel(weapon.weaponName),
-        }))
-        .join("<br />");
+        .map((weapon, index) => {
+          const label = getWeaponLabel(weapon.weaponName);
+          const hasAmmo = Boolean(WEAPON_CAPACITY[weapon.weaponName]);
+          const ammoInfo = hasAmmo ? ` ${weapon.activeAmmo}/${weapon.passiveAmmo}` : "";
+          return `
+            <div class="player-weapon-row">
+              <span class="player-weapon-slot">${t("ui.slot", { slot: index + 1 })}</span>
+              <span class="player-weapon-name">${label}${ammoInfo}</span>
+            </div>
+          `;
+        })
+        .join("");
+      const medkitCount = player.inventory.filter((item) => item.category === "Medkit").length;
+      const exoskeletonCount = player.inventory.filter((item) => item.category === "Exoskeleton").length;
+      const importantItems = [];
+      if (medkitCount > 0) {
+        importantItems.push(`${t("items.medkit")} x${medkitCount}`);
+      }
+      if (exoskeletonCount > 0) {
+        importantItems.push(`${t("items.exoskeleton")} x${exoskeletonCount}`);
+      }
+      const importantItemsMarkup = importantItems.length
+        ? importantItems.map((item) => `<div>${item}</div>`).join("")
+        : `<div class="muted">—</div>`;
       return `
         <div class="player-summary-card">
           <div class="mini-avatar">
@@ -2770,8 +2832,14 @@ function renderPlayerSummary() {
               <span>${t("ui.frags")} ${player.frags}</span>
               <span>${t("ui.deaths")} ${player.deaths}</span>
             </div>
+          </div>
+          <div class="player-summary-side">
             <div class="player-summary-weapons">
               ${weaponSummary}
+            </div>
+            <div class="player-summary-items">
+              <div class="player-summary-items-title">${t("ui.importantItems")}</div>
+              <div class="player-summary-items-list">${importantItemsMarkup}</div>
             </div>
           </div>
         </div>
@@ -2926,9 +2994,56 @@ function renderLastAction() {
       return;
     }
     elements.lastActionMessage.innerHTML = entries
-      .map((entry) => `<div class="action-entry">${formatLogEntry(entry)}</div>`)
+      .map((entry) => renderLastActionEntry(entry))
       .join("");
   }
+}
+
+function renderLastActionEntry(entry) {
+  if (typeof entry === "string") {
+    return `<div class="action-entry">${entry}</div>`;
+  }
+  if (entry.key === "log.turnStart") {
+    const playerColor = getPlayerColorById(entry.vars.playerId);
+    return `
+      <div class="action-entry action-entry--turn" style="--player-color: ${playerColor}">
+        ${formatLogEntry(entry)}
+      </div>
+    `;
+  }
+  if (entry.key === "log.shotHit" && entry.vars?.targetBefore && entry.vars?.targetAfter) {
+    const attackerLabel = getPlayerLabelById(entry.vars.attackerId);
+    const targetLabel = getPlayerLabelById(entry.vars.targetId);
+    const partLabel = getArmorPartLabel(entry.vars.part);
+    const weaponLabel = getWeaponLabel(entry.vars.weapon);
+    const summary = t("ui.hitSummary", {
+      attacker: attackerLabel,
+      target: targetLabel,
+      part: partLabel,
+      weapon: weaponLabel,
+    });
+    const shotLabel = t("ui.shotLabel", { shot: entry.vars.shot });
+    const chanceLabel = t("ui.hitChance", { chance: entry.vars.chance });
+    return `
+      <div class="action-entry action-entry--hit">
+        <div class="action-hit-header">
+          <div class="action-hit-title">${summary}</div>
+          <div class="action-hit-meta">${shotLabel} · ${chanceLabel}</div>
+        </div>
+        <div class="action-hit-avatars">
+          <div class="action-hit-avatar">
+            <div class="action-hit-avatar-label">${t("ui.beforeHit")}</div>
+            <div class="avatar">${renderAvatarParts(entry.vars.targetBefore)}</div>
+          </div>
+          <div class="action-hit-avatar">
+            <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
+            <div class="avatar">${renderAvatarParts(entry.vars.targetAfter)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  return `<div class="action-entry">${formatLogEntry(entry)}</div>`;
 }
 
 function getCellElement(x, y) {

@@ -473,6 +473,59 @@ main {
   border: 1px solid #1f2937;
 }
 
+.action-entry--turn {
+  background: color-mix(in srgb, var(--player-color) 22%, #111827);
+  border-color: color-mix(in srgb, var(--player-color) 65%, #1f2937);
+}
+
+.action-entry--hit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-hit-header {
+  display: grid;
+  gap: 4px;
+}
+
+.action-hit-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.action-hit-meta {
+  font-size: 11px;
+  color: #9aa4b2;
+}
+
+.action-hit-avatars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.action-hit-avatar {
+  border-radius: 8px;
+  padding: 6px;
+  border: 1px solid #1f2937;
+  background: #0b111a;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.action-hit-avatar-label {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.action-hit-avatar .avatar {
+  transform: scale(0.6);
+  transform-origin: top left;
+}
+
 .side-panel,
 .info-panel {
   display: flex;
@@ -834,7 +887,7 @@ main {
 
 .player-summary-card {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 10px;
   padding: 8px;
   border-radius: 10px;
@@ -845,6 +898,13 @@ main {
 .player-summary-main {
   display: grid;
   gap: 6px;
+}
+
+.player-summary-side {
+  display: grid;
+  gap: 8px;
+  min-width: 150px;
+  align-content: start;
 }
 
 .player-summary-header {
@@ -898,6 +958,43 @@ main {
   gap: 4px;
   font-size: 11px;
   color: #a8b1c3;
+}
+
+.player-weapon-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.player-weapon-slot {
+  font-size: 10px;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.player-weapon-name {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.player-summary-items {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: #cbd5f5;
+}
+
+.player-summary-items-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.player-summary-items-list {
+  display: grid;
+  gap: 2px;
 }
 
 .items-panel,
