@@ -117,14 +117,11 @@
 
     <section class="side-panel">
       <div class="status-panel">
-        <h2 data-i18n="game.turnPanel">Turn Panel</h2>
         <div id="turnInfo" class="turn-info"></div>
       </div>
 
       <div class="controls">
-        <h2 data-i18n="game.controlsTitle">Controls</h2>
-        <div class="control-section">
-          <h3 data-i18n="game.moveTitle">Move</h3>
+        <div class="control-section control-layout">
           <div class="move-pad">
             <span></span>
             <button data-move="up" class="arrow">▲</button>
@@ -136,6 +133,7 @@
             <button data-move="down" class="arrow">▼</button>
             <span></span>
           </div>
+          <div id="weaponPanel" class="weapon-panel weapon-panel--controls"></div>
         </div>
         <div class="action-bar">
           <button id="endTurn" class="primary" data-i18n="game.endTurn">End Turn</button>
