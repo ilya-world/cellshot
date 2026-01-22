@@ -484,6 +484,10 @@ main {
   gap: 8px;
 }
 
+.player-name {
+  font-weight: 700;
+}
+
 .action-hit-header {
   display: grid;
   gap: 4px;
@@ -524,6 +528,14 @@ main {
 .action-hit-avatar .avatar {
   transform: scale(0.6);
   transform-origin: top left;
+}
+
+.action-hit-avatar .hp-row {
+  gap: 4px;
+}
+
+.action-hit-avatar .heart {
+  font-size: 12px;
 }
 
 .side-panel,
