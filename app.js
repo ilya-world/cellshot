@@ -63,6 +63,7 @@ const translations = {
     maps: {
       Maze: "Лабиринт",
       Riverside: "Речная долина",
+      Rooms: "Комнаты",
     },
     players: {
       Red: "Красный",
@@ -296,6 +297,7 @@ const translations = {
     maps: {
       Maze: "Maze",
       Riverside: "Riverside",
+      Rooms: "Rooms",
     },
     players: {
       Red: "Red",
@@ -558,9 +560,33 @@ W|||||||||||||||||||W
 W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
 `;
 
+const ROOMS_LAYOUT = `
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|.|W
+W|.|.|.|.|W|.|W|W|.|W|W|W|W|.|.|.|.|.|W
+W|.|.|.|.|W|.|.|W|.|.|.|.|W|.|.|.|.|.|W
+W|.|.|.|S|W|.|.|W|.|W|.|.|W|S|.|.|.|.|W
+W|W|.|W|W|W|W|W|W|.|W|W|W|W|W|W|.|W|W|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|.|.|.|.|.|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|.|.|.|.|.|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|.|.|.|R|R|W
+W|W|W|W|.|.|.|.|.|.|.|.|.|.|.|.|R|R|.|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|.|R|R|.|.|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|R|R|.|.|.|W
+W|.|.|.|.|W|.|.|.|.|.|.|.|W|R|.|.|.|.|W
+W|W|.|W|W|W|W|W|W|.|W|W|W|W|W|W|.|W|W|W
+W|.|.|.|S|W|.|.|.|.|.|.|.|W|S|.|.|.|.|W
+W|.|.|.|.|W|.|.|W|W|W|.|.|W|.|.|.|.|.|W
+W|.|.|.|.|.|.|.|.|R|.|.|.|.|.|.|.|.|.|W
+W|.|.|.|.|W|.|.|.|R|.|.|.|W|.|.|.|.|.|W
+W|.|.|.|.|W|.|.|.|R|.|.|.|W|.|.|.|.|.|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+`;
+
 const mapLibrary = {
   Maze: buildFixedMap("Maze", MAZE_LAYOUT),
   Riverside: buildFixedMap("Riverside", RIVERSIDE_LAYOUT),
+  Rooms: buildFixedMap("Rooms", ROOMS_LAYOUT),
 };
 
 const elements = {
