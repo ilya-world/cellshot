@@ -869,6 +869,13 @@ main {
   gap: 10px;
 }
 
+.control-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
 .control-section h3 {
   margin: 0;
   font-size: 13px;

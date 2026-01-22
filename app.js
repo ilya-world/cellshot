@@ -655,6 +655,7 @@ const elements = {
   saveGame: document.getElementById("saveGame"),
   loadGame: document.getElementById("loadGame"),
   turnInfo: document.getElementById("turnInfo"),
+  weaponPanel: document.getElementById("weaponPanel"),
   playerSummary: document.getElementById("playerSummary"),
   groundItems: document.getElementById("groundItems"),
   inventory: document.getElementById("inventory"),
@@ -3212,19 +3213,21 @@ function renderTurnInfo() {
           <div class="stat-pill">${t("ui.deaths")} ${player.deaths}</div>
         </div>
       </div>
-      <div class="weapon-panel">
-        ${weaponInfo}
-      </div>
     </div>
   `;
 
-  elements.turnInfo.querySelectorAll("[data-weapon]").forEach((button) => {
+  if (elements.weaponPanel) {
+    elements.weaponPanel.innerHTML = weaponInfo;
+  }
+
+  const weaponRoot = elements.weaponPanel || elements.turnInfo;
+  weaponRoot.querySelectorAll("[data-weapon]").forEach((button) => {
     button.addEventListener("click", () => enterAttackMode(Number(button.dataset.weapon)));
   });
-  elements.turnInfo.querySelectorAll("[data-reload]").forEach((button) => {
+  weaponRoot.querySelectorAll("[data-reload]").forEach((button) => {
     button.addEventListener("click", () => reloadWeapon(Number(button.dataset.reload)));
   });
-  elements.turnInfo.querySelectorAll("[data-drop-weapon]").forEach((button) => {
+  weaponRoot.querySelectorAll("[data-drop-weapon]").forEach((button) => {
     button.addEventListener("click", () => dropWeapon(Number(button.dataset.dropWeapon)));
   });
 }
