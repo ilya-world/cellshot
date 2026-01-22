@@ -509,6 +509,7 @@ const state = {
   playerTypeSelections: [],
   aiTurnId: 0,
   victory: null,
+  victoryAchieved: false,
 };
 
 const MAZE_LAYOUT = `
@@ -863,6 +864,7 @@ function hideVictoryModal(keepState = false) {
   elements.victoryModal.setAttribute("aria-hidden", "true");
   if (!keepState) {
     state.victory = null;
+    scheduleAiTurn();
   }
 }
 
@@ -876,6 +878,7 @@ function startNewGame(keepMapSelection = false) {
   state.lastActionMessage = null;
   state.aiTurnId += 1;
   state.victory = null;
+  state.victoryAchieved = false;
 
   if (!keepMapSelection) {
     elements.mapSelect.value = elements.mapSelect.value || "Maze";
@@ -2035,7 +2038,8 @@ function handleDeath(attacker, target, part) {
   target.deaths += 1;
   if (attacker) {
     attacker.frags += 1;
-    if (!state.victory && attacker.frags >= state.fragLimit) {
+    if (!state.victoryAchieved && attacker.frags >= state.fragLimit) {
+      state.victoryAchieved = true;
       showVictoryModal(attacker);
     }
   }
@@ -2956,6 +2960,7 @@ function loadGame() {
   state.rng = mulberry32(state.seed);
   state.aiTurnId += 1;
   state.victory = null;
+  state.victoryAchieved = Boolean(state.victoryAchieved);
   state.players.forEach((player, index) => {
     if (!player.nameKey) {
       player.nameKey = player.name || PLAYER_PRESETS[index]?.nameKey || "Red";
