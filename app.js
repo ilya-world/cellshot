@@ -133,12 +133,16 @@ const translations = {
       dropItem: "Выбросить",
       slotWeapon: "Слот {slot}: {weapon}",
       shotLabel: "Выстрел {shot}",
+      shotLabelRange: "Выстрелы {start}-{end}",
       hitSummary: "{attacker} попал в {part} игрока {target} из {weapon}",
+      hitSummaryMulti: "{attacker} попал в {parts} игрока {target} из {weapon}",
       hitChance: "Шанс попадания {chance}%",
       beforeHit: "До попадания",
       afterHit: "После попадания",
       importantItems: "Важные предметы",
       statusBadge: "{status}",
+      listSeparator: ", ",
+      listConjunction: "и",
     },
     rules: {
       title: "Правила и инструкции",
@@ -378,12 +382,16 @@ const translations = {
       dropItem: "Drop",
       slotWeapon: "Slot {slot}: {weapon}",
       shotLabel: "Shot {shot}",
+      shotLabelRange: "Shots {start}-{end}",
       hitSummary: "{attacker} hit {target}'s {part} with {weapon}",
+      hitSummaryMulti: "{attacker} hit {target}'s {parts} with {weapon}",
       hitChance: "Hit chance {chance}%",
       beforeHit: "Before hit",
       afterHit: "After hit",
       importantItems: "Important items",
       statusBadge: "{status}",
+      listSeparator: ", ",
+      listConjunction: "and",
     },
     rules: {
       title: "Rules & instructions",
@@ -3469,9 +3477,69 @@ function formatLogEntry(entry) {
   return t(entry.key, resolveLogVars(entry.vars));
 }
 
+function formatList(items) {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) {
+    return `${items[0]} ${t("ui.listConjunction")} ${items[1]}`;
+  }
+  const separator = t("ui.listSeparator");
+  const head = items.slice(0, -1).join(separator);
+  return `${head}${separator}${t("ui.listConjunction")} ${items[items.length - 1]}`;
+}
+
+function formatHitParts(parts) {
+  const counts = parts.reduce((acc, part) => {
+    acc[part] = (acc[part] ?? 0) + 1;
+    return acc;
+  }, {});
+  const labeled = Object.entries(counts).map(([part, count]) => {
+    const label = getArmorPartLabel(part);
+    return count > 1 ? `${label} ×${count}` : label;
+  });
+  return formatList(labeled);
+}
+
+function isMultiHitEntry(entry) {
+  return entry?.key === "log.shotHit"
+    && entry.vars?.weapon
+    && ["Shotgun", "Sword"].includes(entry.vars.weapon);
+}
+
+function shouldCombineHitEntries(current, previous) {
+  return isMultiHitEntry(current)
+    && isMultiHitEntry(previous)
+    && current.vars.attackerId === previous.vars.attackerId
+    && current.vars.targetId === previous.vars.targetId
+    && current.vars.weapon === previous.vars.weapon
+    && current.vars.targetBefore
+    && current.vars.targetAfter
+    && previous.vars.targetBefore
+    && previous.vars.targetAfter;
+}
+
+function getLastActionEntries() {
+  const entries = [];
+  for (let index = state.log.length - 1; index >= 0 && entries.length < 5; index -= 1) {
+    const entry = state.log[index];
+    const previous = state.log[index - 1];
+    if (shouldCombineHitEntries(entry, previous)) {
+      entries.push({
+        key: "log.shotHitCombined",
+        vars: {
+          hits: [previous, entry],
+        },
+      });
+      index -= 1;
+      continue;
+    }
+    entries.push(entry);
+  }
+  return entries;
+}
+
 function renderLastAction() {
   if (elements.lastActionMessage) {
-    const entries = state.log.slice(-5).reverse();
+    const entries = getLastActionEntries();
     if (entries.length === 0) {
       elements.lastActionMessage.textContent = "—";
       return;
@@ -3523,6 +3591,44 @@ function renderLastActionEntry(entry) {
             <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
             <div class="avatar">${renderAvatarParts(entry.vars.targetAfter)}</div>
             <div class="hp-row">${renderHearts(entry.vars.targetAfter.health ?? 0)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (entry.key === "log.shotHitCombined" && Array.isArray(entry.vars?.hits)) {
+    const [firstHit, lastHit] = entry.vars.hits;
+    const attackerLabel = getStyledPlayerLabelById(firstHit.vars.attackerId);
+    const targetLabel = getStyledPlayerLabelById(firstHit.vars.targetId);
+    const weaponLabel = getWeaponLabel(firstHit.vars.weapon);
+    const parts = formatHitParts(entry.vars.hits.map((hit) => hit.vars.part));
+    const summary = t("ui.hitSummaryMulti", {
+      attacker: attackerLabel,
+      target: targetLabel,
+      parts,
+      weapon: weaponLabel,
+    });
+    const shotLabel = t("ui.shotLabelRange", {
+      start: firstHit.vars.shot,
+      end: lastHit.vars.shot,
+    });
+    const chanceLabel = t("ui.hitChance", { chance: lastHit.vars.chance });
+    return `
+      <div class="action-entry action-entry--hit">
+        <div class="action-hit-header">
+          <div class="action-hit-title">${summary}</div>
+          <div class="action-hit-meta">${shotLabel} · ${chanceLabel}</div>
+        </div>
+        <div class="action-hit-avatars">
+          <div class="action-hit-avatar">
+            <div class="action-hit-avatar-label">${t("ui.beforeHit")}</div>
+            <div class="avatar">${renderAvatarParts(firstHit.vars.targetBefore)}</div>
+            <div class="hp-row">${renderHearts(firstHit.vars.targetBefore.health ?? 0)}</div>
+          </div>
+          <div class="action-hit-avatar">
+            <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
+            <div class="avatar">${renderAvatarParts(lastHit.vars.targetAfter)}</div>
+            <div class="hp-row">${renderHearts(lastHit.vars.targetAfter.health ?? 0)}</div>
           </div>
         </div>
       </div>
