@@ -3534,7 +3534,7 @@ function getLastActionEntries() {
     }
     entries.push(entry);
   }
-  return entries.reverse();
+  return entries;
 }
 
 function renderLastAction() {
