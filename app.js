@@ -75,6 +75,7 @@ const translations = {
       Riverside: "Речная долина",
       Rooms: "Комнаты",
       Flower: "Цветок",
+      Ruins: "Руины",
       Generated: "Сгенерированная",
     },
     players: {
@@ -328,6 +329,7 @@ const translations = {
       Riverside: "Riverside",
       Rooms: "Rooms",
       Flower: "Flower",
+      Ruins: "Ruins",
       Generated: "Generated",
     },
     players: {
@@ -653,11 +655,35 @@ W|.|.|.|.|W|.|.|.|R|.|.|.|W|.|.|.|.|.|W
 W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
 `;
 
+const RUINS_LAYOUT = `
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+W|S|.|.|.|.|W|.|.|S|.|.|.|W|.|.|.|.|S|W
+W|.|.|.|.|.|W|.|.|.|.|.|.|.|.|.|.|.|.|W
+W|.|.|.|.|.|W|.|W|W|W|W|W|W|W|W|.|.|.|W
+W|.|.|.|.|.|.|.|.|.|.|.|W|.|.|.|.|.|.|W
+W|.|.|.|.|.|.|.|.|.|.|.|W|.|.|.|.|.|.|W
+W|W|.|W|W|.|W|.|.|.|.|.|W|.|.|W|W|W|W|W
+W|.|.|.|.|.|W|.|.|.|.|.|W|.|.|.|.|.|.|W
+W|.|.|.|.|.|W|.|.|.|.|.|W|.|.|.|W|.|.|W
+W|S|.|.|.|.|W|.|.|.|.|.|.|.|.|.|W|.|.|W
+W|.|.|.|W|W|W|W|.|W|W|W|W|.|.|.|W|.|S|W
+W|.|.|.|.|.|W|.|.|.|.|.|W|.|.|.|.|.|.|W
+W|.|.|.|.|.|W|.|.|.|.|.|W|.|.|.|.|.|.|W
+W|W|W|W|.|.|W|.|.|.|.|.|W|W|W|W|W|.|W|W
+W|.|.|.|.|.|.|.|W|.|.|.|.|.|.|.|.|.|.|W
+W|.|.|.|.|.|W|W|W|.|.|.|W|W|W|.|.|.|.|W
+W|.|.|W|W|.|.|.|.|.|.|.|.|W|.|.|.|.|.|W
+W|.|.|.|.|.|W|.|.|.|.|.|.|W|.|.|.|.|.|W
+W|S|.|.|.|.|W|.|.|.|S|.|.|W|.|.|.|.|S|W
+W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W|W
+`;
+
 const mapLibrary = {
   Maze: buildFixedMap("Maze", MAZE_LAYOUT),
   Riverside: buildFixedMap("Riverside", RIVERSIDE_LAYOUT),
   Rooms: buildFixedMap("Rooms", ROOMS_LAYOUT),
   Flower: buildFixedMap("Flower", FLOWER_LAYOUT),
+  Ruins: buildFixedMap("Ruins", RUINS_LAYOUT),
   Generated: createEmptyMap(GENERATED_MAP_NAME),
 };
 
@@ -1570,6 +1596,7 @@ function createPlayers(count, playerTypes = []) {
       frags: 0,
       deaths: 0,
       inventory: [],
+      respawnRound: null,
     };
   });
 }
@@ -1583,12 +1610,20 @@ function assignSpawnPoints() {
       }
     });
   });
-  const fallback = { x: 2, y: 2 };
 
   state.players.forEach((player, index) => {
-    const spawn = spawns[index] || fallback;
-    player.x = spawn.x;
-    player.y = spawn.y;
+    const spawn = spawns[index];
+    if (spawn) {
+      player.status = "Alive";
+      player.x = spawn.x;
+      player.y = spawn.y;
+      player.respawnRound = null;
+      return;
+    }
+    player.status = "Dead";
+    player.x = 0;
+    player.y = 0;
+    player.respawnRound = state.round + 1;
   });
 }
 
@@ -1597,6 +1632,14 @@ function startTurn() {
   while (safety < state.players.length) {
     const player = getCurrentPlayer();
     if (player.status === "Dead") {
+      if (player.respawnRound && state.round < player.respawnRound) {
+        advanceTurn();
+        safety += 1;
+        continue;
+      }
+      if (player.respawnRound && state.round >= player.respawnRound) {
+        player.respawnRound = null;
+      }
       const respawned = respawnPlayer(player);
       if (respawned) {
         logEvent("log.respawnSkip", { playerId: player.id });
