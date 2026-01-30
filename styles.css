@@ -543,11 +543,11 @@ main {
 
 .action-hit-avatar {
   border-radius: 8px;
-  padding: 6px;
+  padding: 4px;
   border: 1px solid #1f2937;
   background: #0b111a;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   justify-items: center;
 }
 
@@ -556,13 +556,22 @@ main {
   color: #94a3b8;
 }
 
+.action-hit-avatar-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .action-hit-avatar .avatar {
   transform: scale(0.6);
   transform-origin: top left;
+  margin-bottom: -4px;
 }
 
 .action-hit-avatar .hp-row {
-  gap: 4px;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
 }
 
 .action-hit-avatar .heart {

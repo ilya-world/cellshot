@@ -3639,13 +3639,17 @@ function renderLastActionEntry(entry) {
         <div class="action-hit-avatars">
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.beforeHit")}</div>
-            <div class="avatar">${renderAvatarParts(entry.vars.targetBefore)}</div>
-            <div class="hp-row">${renderHearts(entry.vars.targetBefore.health ?? 0)}</div>
+            <div class="action-hit-avatar-body">
+              <div class="avatar">${renderAvatarParts(entry.vars.targetBefore)}</div>
+              <div class="hp-row">${renderHearts(entry.vars.targetBefore.health ?? 0)}</div>
+            </div>
           </div>
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
-            <div class="avatar">${renderAvatarParts(entry.vars.targetAfter)}</div>
-            <div class="hp-row">${renderHearts(entry.vars.targetAfter.health ?? 0)}</div>
+            <div class="action-hit-avatar-body">
+              <div class="avatar">${renderAvatarParts(entry.vars.targetAfter)}</div>
+              <div class="hp-row">${renderHearts(entry.vars.targetAfter.health ?? 0)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -3677,13 +3681,17 @@ function renderLastActionEntry(entry) {
         <div class="action-hit-avatars">
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.beforeHit")}</div>
-            <div class="avatar">${renderAvatarParts(firstHit.vars.targetBefore)}</div>
-            <div class="hp-row">${renderHearts(firstHit.vars.targetBefore.health ?? 0)}</div>
+            <div class="action-hit-avatar-body">
+              <div class="avatar">${renderAvatarParts(firstHit.vars.targetBefore)}</div>
+              <div class="hp-row">${renderHearts(firstHit.vars.targetBefore.health ?? 0)}</div>
+            </div>
           </div>
           <div class="action-hit-avatar">
             <div class="action-hit-avatar-label">${t("ui.afterHit")}</div>
-            <div class="avatar">${renderAvatarParts(lastHit.vars.targetAfter)}</div>
-            <div class="hp-row">${renderHearts(lastHit.vars.targetAfter.health ?? 0)}</div>
+            <div class="action-hit-avatar-body">
+              <div class="avatar">${renderAvatarParts(lastHit.vars.targetAfter)}</div>
+              <div class="hp-row">${renderHearts(lastHit.vars.targetAfter.health ?? 0)}</div>
+            </div>
           </div>
         </div>
       </div>
