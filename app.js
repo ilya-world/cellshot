@@ -20,6 +20,10 @@ const PLAYER_PRESETS = [
   { nameKey: "Green", color: "#3fbf7f" },
   { nameKey: "Blue", color: "#3b82f6" },
   { nameKey: "Yellow", color: "#f5c542" },
+  { nameKey: "Purple", color: "#8b5cf6" },
+  { nameKey: "Orange", color: "#f97316" },
+  { nameKey: "Teal", color: "#14b8a6" },
+  { nameKey: "Pink", color: "#ec4899" },
 ];
 const LANGUAGE_STORAGE_KEY = "cellshot-lang";
 const translations = {
@@ -78,6 +82,10 @@ const translations = {
       Green: "Зеленый",
       Blue: "Синий",
       Yellow: "Желтый",
+      Purple: "Фиолетовый",
+      Orange: "Оранжевый",
+      Teal: "Бирюзовый",
+      Pink: "Розовый",
     },
     weapons: {
       Pistol: "Пистолет",
@@ -327,6 +335,10 @@ const translations = {
       Green: "Green",
       Blue: "Blue",
       Yellow: "Yellow",
+      Purple: "Purple",
+      Orange: "Orange",
+      Teal: "Teal",
+      Pink: "Pink",
     },
     weapons: {
       Pistol: "Pistol",
