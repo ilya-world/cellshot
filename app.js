@@ -2804,10 +2804,10 @@ function useMedkit(allowAi = false) {
     return;
   }
   player.health = 3;
-  if (player.leftLegArmor === -1) player.leftLegArmor = 0;
-  if (player.rightLegArmor === -1) player.rightLegArmor = 0;
-  if (player.leftArmArmor === -1) player.leftArmArmor = 0;
-  if (player.rightArmArmor === -1) player.rightArmArmor = 0;
+  if (player.leftLegArmor < 0) player.leftLegArmor = 0;
+  if (player.rightLegArmor < 0) player.rightLegArmor = 0;
+  if (player.leftArmArmor < 0) player.leftArmArmor = 0;
+  if (player.rightArmArmor < 0) player.rightArmArmor = 0;
   player.inventory.splice(medkitIndex, 1);
   logEvent("log.medkitUsed");
   render();
