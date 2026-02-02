@@ -1169,6 +1169,62 @@ main {
   color: #e2e8f0;
 }
 
+.victory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.victory-stats,
+.victory-achievements {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.victory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  color: #e2e8f0;
+}
+
+.victory-table th,
+.victory-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.victory-table th {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.victory-table tr:last-child td {
+  border-bottom: none;
+}
+
+.victory-achievements-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.victory-achievement-label {
+  color: #94a3b8;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .modal__actions {
   display: flex;
   flex-wrap: wrap;

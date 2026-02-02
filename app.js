@@ -221,6 +221,17 @@ const translations = {
     victory: {
       title: "Победа!",
       message: "Побеждает {player}!",
+      statsTitle: "Статистика матча",
+      statsPlayer: "Игрок",
+      statsFrags: "Фраги",
+      statsDeaths: "Смерти",
+      achievementsTitle: "Ачивки",
+      achievementsEmpty: "Нет достижений для отображения.",
+      achievementMostDamage: "Больше всего урона по телу и конечностям",
+      achievementBestAccuracy: "Самая высокая точность",
+      achievementMostCrates: "Больше всего ящиков открыто",
+      achievementMostHeadshots: "Больше всего попаданий в голову",
+      achievementMostFrags: "Больше всего фрагов",
       newGame: "Новая игра",
       continue: "Продолжить игру",
     },
@@ -479,6 +490,17 @@ const translations = {
     victory: {
       title: "Victory!",
       message: "{player} wins!",
+      statsTitle: "Match stats",
+      statsPlayer: "Player",
+      statsFrags: "Frags",
+      statsDeaths: "Deaths",
+      achievementsTitle: "Achievements",
+      achievementsEmpty: "No achievements to show.",
+      achievementMostDamage: "Most body + limb damage",
+      achievementBestAccuracy: "Highest accuracy",
+      achievementMostCrates: "Most crates opened",
+      achievementMostHeadshots: "Most headshots",
+      achievementMostFrags: "Most frags",
       newGame: "New game",
       continue: "Continue game",
     },
@@ -736,6 +758,8 @@ const elements = {
   optionsModal: document.getElementById("optionsModal"),
   victoryModal: document.getElementById("victoryModal"),
   victoryMessage: document.getElementById("victoryMessage"),
+  victoryStats: document.getElementById("victoryStats"),
+  victoryAchievements: document.getElementById("victoryAchievements"),
   victoryNewGame: document.querySelector("[data-victory-new]"),
   victoryContinue: document.querySelector("[data-victory-continue]"),
 };
@@ -1454,6 +1478,128 @@ function updateVictoryMessage() {
   elements.victoryMessage.textContent = t("victory.message", {
     player: getPlayerLabel(winner),
   });
+  renderVictoryStats();
+  renderVictoryAchievements();
+}
+
+function formatAccuracy(value) {
+  if (value === null) return "—";
+  return `${Math.round(value * 100)}%`;
+}
+
+function renderVictoryStats() {
+  if (!elements.victoryStats) return;
+  const players = [...state.players];
+  players.sort((a, b) => {
+    if (b.frags !== a.frags) return b.frags - a.frags;
+    if (a.deaths !== b.deaths) return a.deaths - b.deaths;
+    return a.id - b.id;
+  });
+  const rows = players
+    .map((player) => `
+      <tr>
+        <td>${getStyledPlayerLabelById(player.id)}</td>
+        <td>${player.frags}</td>
+        <td>${player.deaths}</td>
+      </tr>
+    `)
+    .join("");
+  elements.victoryStats.innerHTML = `
+    <table class="victory-table">
+      <thead>
+        <tr>
+          <th>${t("victory.statsPlayer")}</th>
+          <th>${t("victory.statsFrags")}</th>
+          <th>${t("victory.statsDeaths")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+function getAchievementWinners(players, scoreFn, options = {}) {
+  const { minScore = null, allowZeroAttempts = true } = options;
+  let bestScore = null;
+  const winners = [];
+  players.forEach((player) => {
+    const score = scoreFn(player);
+    if (score === null) return;
+    if (!allowZeroAttempts && score === 0) return;
+    if (minScore !== null && score < minScore) return;
+    if (bestScore === null || score > bestScore) {
+      bestScore = score;
+      winners.length = 0;
+      winners.push(player);
+    } else if (score === bestScore) {
+      winners.push(player);
+    }
+  });
+  return { winners, score: bestScore };
+}
+
+function renderVictoryAchievements() {
+  if (!elements.victoryAchievements) return;
+  const players = state.players.map((player) => {
+    ensurePlayerStats(player);
+    return player;
+  });
+
+  const accuracyResults = getAchievementWinners(
+    players,
+    (player) => (player.shotsFired > 0 ? player.shotsHit / player.shotsFired : null),
+    { allowZeroAttempts: false }
+  );
+
+  const achievements = [
+    {
+      label: t("victory.achievementMostDamage"),
+      result: getAchievementWinners(players, (player) => player.bodyLimbHits),
+      valueFormatter: (score) => (score === null ? "—" : String(score)),
+    },
+    {
+      label: t("victory.achievementBestAccuracy"),
+      result: accuracyResults,
+      valueFormatter: (score) => formatAccuracy(score),
+    },
+    {
+      label: t("victory.achievementMostCrates"),
+      result: getAchievementWinners(players, (player) => player.cratesOpened),
+      valueFormatter: (score) => (score === null ? "—" : String(score)),
+    },
+    {
+      label: t("victory.achievementMostHeadshots"),
+      result: getAchievementWinners(players, (player) => player.headshots),
+      valueFormatter: (score) => (score === null ? "—" : String(score)),
+    },
+    {
+      label: t("victory.achievementMostFrags"),
+      result: getAchievementWinners(players, (player) => player.frags),
+      valueFormatter: (score) => (score === null ? "—" : String(score)),
+    },
+  ];
+
+  const rendered = achievements
+    .map((achievement) => {
+      const { winners, score } = achievement.result;
+      const winnerLabel = winners.length
+        ? winners.map((player) => getStyledPlayerLabelById(player.id)).join(", ")
+        : "—";
+      const value = achievement.valueFormatter(score);
+      return `
+        <li>
+          <div class="victory-achievement-label">${achievement.label}</div>
+          <div>${winnerLabel} <span class="muted">(${value})</span></div>
+        </li>
+      `;
+    })
+    .join("");
+
+  elements.victoryAchievements.innerHTML = rendered
+    ? `<ul class="victory-achievements-list">${rendered}</ul>`
+    : `<div class="muted">${t("victory.achievementsEmpty")}</div>`;
 }
 
 function showVictoryModal(winner) {
@@ -1653,10 +1799,23 @@ function createPlayers(count, playerTypes = []) {
       ],
       frags: 0,
       deaths: 0,
+      shotsFired: 0,
+      shotsHit: 0,
+      headshots: 0,
+      bodyLimbHits: 0,
+      cratesOpened: 0,
       inventory: [],
       respawnRound: null,
     };
   });
+}
+
+function ensurePlayerStats(player) {
+  player.shotsFired = player.shotsFired ?? 0;
+  player.shotsHit = player.shotsHit ?? 0;
+  player.headshots = player.headshots ?? 0;
+  player.bodyLimbHits = player.bodyLimbHits ?? 0;
+  player.cratesOpened = player.cratesOpened ?? 0;
 }
 
 function assignSpawnPoints() {
@@ -2344,6 +2503,11 @@ function handleCratePickup(x, y) {
     (item) => item.type === "Crate" && item.x === x && item.y === y
   );
   if (crateIndex === -1) return;
+  const player = getCurrentPlayer();
+  if (player) {
+    ensurePlayerStats(player);
+    player.cratesOpened += 1;
+  }
   state.items.splice(crateIndex, 1);
   const prizeRoll = roll(1, 8);
   logEvent("log.crateOpened");
@@ -2533,6 +2697,7 @@ function handleCellClick(x, y) {
 function executeAttack(slot, targetX, targetY) {
   const attacker = getCurrentPlayer();
   const weapon = attacker.weapons[slot];
+  ensurePlayerStats(attacker);
 
   if (state.weaponPoints <= 0) {
     logEvent("log.noWeaponPoints");
@@ -2566,8 +2731,10 @@ function executeAttack(slot, targetX, targetY) {
   const distancePenalty = attacker.leftArmArmor < 0 || attacker.rightArmArmor < 0 ? 2 : 0;
   const hitChance = getHitChance(distance, distancePenalty);
   for (let shot = 0; shot < shots; shot += 1) {
+    attacker.shotsFired += 1;
     const distanceCheck = roll(1, 6);
     if (distanceCheck - distancePenalty >= distance) {
+      attacker.shotsHit += 1;
       const targetBefore = snapshotAvatarState(target);
       const hitInfo = applyHit(attacker, target, weapon.weaponName);
       const targetAfter = snapshotAvatarState(target);
@@ -2636,7 +2803,20 @@ function applyHit(attacker, target, weaponName) {
   };
 }
 
+function recordDamageHit(attacker, part) {
+  if (!attacker) return;
+  ensurePlayerStats(attacker);
+  if (part === "Head") {
+    attacker.headshots += 1;
+    return;
+  }
+  if (["Body", "Left Arm", "Right Arm", "Left Leg", "Right Leg"].includes(part)) {
+    attacker.bodyLimbHits += 1;
+  }
+}
+
 function applyDamage(target, part, attacker) {
+  recordDamageHit(attacker, part);
   switch (part) {
     case "Body":
       if (target.bodyArmor > 0) {
@@ -3874,6 +4054,7 @@ function loadGame() {
     if (!player.nameKey) {
       player.nameKey = player.name || PLAYER_PRESETS[index]?.nameKey || "Red";
     }
+    ensurePlayerStats(player);
   });
   state.playerTypeSelections = state.players.map((player) => (player.isAI ? "ai" : "human"));
   logEvent("log.loadDone");
