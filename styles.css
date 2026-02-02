@@ -983,6 +983,11 @@ main {
   background: #0f1420;
 }
 
+.player-summary-card.is-active {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ef4444 65%, transparent);
+}
+
 .player-summary-main {
   display: grid;
   gap: 6px;
