@@ -3570,8 +3570,10 @@ function renderAvatarParts(player) {
 
 function renderPlayerSummary() {
   if (!elements.playerSummary) return;
+  const currentPlayerId = getCurrentPlayer()?.id;
   elements.playerSummary.innerHTML = state.players
     .map((player) => {
+      const isActivePlayer = player.id === currentPlayerId;
       const weaponSummary = player.weapons
         .map((weapon, index) => {
           const label = getWeaponLabel(weapon.weaponName);
@@ -3598,7 +3600,7 @@ function renderPlayerSummary() {
         ? importantItems.map((item) => `<div>${item}</div>`).join("")
         : `<div class="muted">—</div>`;
       return `
-        <div class="player-summary-card">
+        <div class="player-summary-card ${isActivePlayer ? "is-active" : ""}">
           <div class="mini-avatar">
             <div class="avatar">
               ${renderAvatarParts(player)}
