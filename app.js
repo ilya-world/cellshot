@@ -55,9 +55,12 @@ const translations = {
       reset: "Сброс",
       save: "Сохранить",
       load: "Загрузить",
+      optionsButton: "Опции",
       rulesButton: "Правила и инструкции",
       lastAction: "Последние действия",
       aiSpeedLabel: "Скорость хода AI",
+      optionsTitle: "Опции",
+      crateIntervalLabel: "Интервал появления ящиков (ходы)",
       turnPanel: "Панель хода",
       controlsTitle: "Управление",
       moveTitle: "Движение",
@@ -310,9 +313,12 @@ const translations = {
       reset: "Reset",
       save: "Save",
       load: "Load",
+      optionsButton: "Options",
       rulesButton: "Rules & instructions",
       lastAction: "Last action",
       aiSpeedLabel: "AI turn speed",
+      optionsTitle: "Options",
+      crateIntervalLabel: "Crate spawn interval (turns)",
       turnPanel: "Turn panel",
       controlsTitle: "Controls",
       moveTitle: "Move",
@@ -704,6 +710,7 @@ const elements = {
   resetGame: document.getElementById("resetGame"),
   saveGame: document.getElementById("saveGame"),
   loadGame: document.getElementById("loadGame"),
+  optionsButton: document.getElementById("optionsButton"),
   turnInfo: document.getElementById("turnInfo"),
   weaponPanel: document.getElementById("weaponPanel"),
   playerSummary: document.getElementById("playerSummary"),
@@ -722,9 +729,11 @@ const elements = {
   generatedMapSettings: document.getElementById("generatedMapSettings"),
   aiSpeed: document.getElementById("aiSpeed"),
   aiSpeedValue: document.getElementById("aiSpeedValue"),
+  optionsCrateInterval: document.getElementById("optionsCrateInterval"),
   rulesModal: document.getElementById("rulesModal"),
   rulesContent: document.getElementById("rulesContent"),
   rulesTitle: document.getElementById("rulesTitle"),
+  optionsModal: document.getElementById("optionsModal"),
   victoryModal: document.getElementById("victoryModal"),
   victoryMessage: document.getElementById("victoryMessage"),
   victoryNewGame: document.querySelector("[data-victory-new]"),
@@ -1333,6 +1342,16 @@ function init() {
       updateAiSpeedValue();
     });
   }
+  if (elements.crateInterval) {
+    elements.crateInterval.addEventListener("input", () => {
+      updateCrateIntervalFromInput(elements.crateInterval.value);
+    });
+  }
+  if (elements.optionsCrateInterval) {
+    elements.optionsCrateInterval.addEventListener("input", () => {
+      updateCrateIntervalFromInput(elements.optionsCrateInterval.value);
+    });
+  }
 
   document.querySelectorAll("[data-lang]").forEach((button) => {
     button.addEventListener("click", () => setLanguage(button.dataset.lang));
@@ -1343,6 +1362,12 @@ function init() {
   });
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", hideRulesModal);
+  });
+  document.querySelectorAll("[data-options-button]").forEach((button) => {
+    button.addEventListener("click", showOptionsModal);
+  });
+  document.querySelectorAll("[data-close-options]").forEach((button) => {
+    button.addEventListener("click", hideOptionsModal);
   });
   document.querySelectorAll("[data-close-victory]").forEach((button) => {
     button.addEventListener("click", () => hideVictoryModal());
@@ -1365,6 +1390,7 @@ function init() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       hideRulesModal();
+      hideOptionsModal();
       if (state.victory) {
         hideVictoryModal();
       }
@@ -1376,6 +1402,7 @@ function init() {
   updateGeneratedSettingsVisibility();
   renderMapPreview();
   updateAiSpeedControl();
+  syncCrateIntervalControls();
   setLanguage(state.language);
   showStartScreen();
 }
@@ -1404,6 +1431,20 @@ function hideRulesModal() {
   if (!elements.rulesModal) return;
   elements.rulesModal.classList.remove("is-visible");
   elements.rulesModal.setAttribute("aria-hidden", "true");
+}
+
+function showOptionsModal() {
+  if (!elements.optionsModal) return;
+  updateAiSpeedControl();
+  syncCrateIntervalControls();
+  elements.optionsModal.classList.add("is-visible");
+  elements.optionsModal.setAttribute("aria-hidden", "false");
+}
+
+function hideOptionsModal() {
+  if (!elements.optionsModal) return;
+  elements.optionsModal.classList.remove("is-visible");
+  elements.optionsModal.setAttribute("aria-hidden", "true");
 }
 
 function updateVictoryMessage() {
@@ -1467,6 +1508,7 @@ function startNewGame(keepMapSelection = false) {
   state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 3);
   state.fragLimit = Math.max(1, Number(elements.fragLimit.value) || 10);
   updateAiSpeedControl();
+  syncCrateIntervalControls();
 
   assignSpawnPoints();
   startTurn();
@@ -1493,6 +1535,7 @@ function showStartScreen() {
     elements.fragLimit.value = String(state.fragLimit || 10);
   }
   updateAiSpeedControl();
+  syncCrateIntervalControls();
   updateGeneratedSettingsVisibility();
   renderMapPreview();
   renderPlayerTypeList();
@@ -3636,6 +3679,21 @@ function updateAiSpeedControl() {
   updateAiSpeedValue();
 }
 
+function syncCrateIntervalControls() {
+  const interval = Math.max(1, Number(state.crateInterval) || 3);
+  if (elements.crateInterval) {
+    elements.crateInterval.value = String(interval);
+  }
+  if (elements.optionsCrateInterval) {
+    elements.optionsCrateInterval.value = String(interval);
+  }
+}
+
+function updateCrateIntervalFromInput(value) {
+  state.crateInterval = Math.max(1, Number(value) || 1);
+  syncCrateIntervalControls();
+}
+
 function renderLastAction() {
   if (elements.lastActionMessage) {
     const entries = getLastActionEntries();
@@ -3820,9 +3878,9 @@ function loadGame() {
   state.playerTypeSelections = state.players.map((player) => (player.isAI ? "ai" : "human"));
   logEvent("log.loadDone");
   elements.mapSelect.value = state.mapName;
-  elements.crateInterval.value = state.crateInterval || 3;
   elements.fragLimit.value = state.fragLimit || 10;
   updateAiSpeedControl();
+  syncCrateIntervalControls();
   elements.playerCount.value = String(state.players.length);
   setLanguage(state.language);
   hideStartScreen();
