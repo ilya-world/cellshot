@@ -101,6 +101,7 @@
         <button id="resetGame" data-i18n="game.reset">Reset</button>
         <button id="saveGame" data-i18n="game.save">Save</button>
         <button id="loadGame" data-i18n="game.load">Load</button>
+        <button id="optionsButton" data-options-button data-i18n="game.optionsButton">Options</button>
         <button type="button" class="ghost" data-rules-button data-i18n="game.rulesButton">Rules & instructions</button>
         <div class="language-toggle" role="group" aria-label="Language">
           <button type="button" data-lang="ru">Русский</button>
@@ -143,15 +144,6 @@
           <button id="endTurn" class="primary" data-i18n="game.endTurn">End Turn</button>
           <button id="useMedkit" data-i18n="game.useMedkit">Medkit</button>
         </div>
-        <div class="ai-speed-control">
-          <label>
-            <span data-i18n="game.aiSpeedLabel">AI turn speed</span>
-            <div class="ai-speed-row">
-              <input id="aiSpeed" type="range" min="200" max="2000" step="100" value="1000" />
-              <span class="range-value" id="aiSpeedValue">1.0s</span>
-            </div>
-          </label>
-        </div>
       </div>
     </section>
 
@@ -185,6 +177,27 @@
       <button class="modal__close" type="button" aria-label="Close" data-close-modal>×</button>
       <h2 id="rulesTitle"></h2>
       <div id="rulesContent" class="rules-content"></div>
+    </div>
+  </div>
+
+  <div id="optionsModal" class="modal" aria-hidden="true">
+    <div class="modal__overlay" data-close-options></div>
+    <div class="modal__content" role="dialog" aria-modal="true" aria-labelledby="optionsTitle">
+      <button class="modal__close" type="button" aria-label="Close" data-close-options>×</button>
+      <h2 id="optionsTitle" data-i18n="game.optionsTitle">Options</h2>
+      <div class="options-content">
+        <label>
+          <span data-i18n="game.aiSpeedLabel">AI turn speed</span>
+          <div class="ai-speed-row">
+            <input id="aiSpeed" type="range" min="200" max="2000" step="100" value="1000" />
+            <span class="range-value" id="aiSpeedValue">1.0s</span>
+          </div>
+        </label>
+        <label>
+          <span data-i18n="game.crateIntervalLabel">Crate spawn interval (turns)</span>
+          <input id="optionsCrateInterval" type="number" min="1" value="3" />
+        </label>
+      </div>
     </div>
   </div>
 
