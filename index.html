@@ -143,6 +143,15 @@
           <button id="endTurn" class="primary" data-i18n="game.endTurn">End Turn</button>
           <button id="useMedkit" data-i18n="game.useMedkit">Medkit</button>
         </div>
+        <div class="ai-speed-control">
+          <label>
+            <span data-i18n="game.aiSpeedLabel">AI turn speed</span>
+            <div class="ai-speed-row">
+              <input id="aiSpeed" type="range" min="200" max="2000" step="100" value="1000" />
+              <span class="range-value" id="aiSpeedValue">1.0s</span>
+            </div>
+          </label>
+        </div>
       </div>
     </section>
 

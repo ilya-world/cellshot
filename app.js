@@ -1,7 +1,8 @@
 const MAX_LOG = 400;
 const GRID_SIZE = 20;
 const INVENTORY_SIZE = 4;
-const AI_ACTION_DELAY = 1000;
+const DEFAULT_AI_ACTION_DELAY = 1000;
+const LAST_ACTION_LIMIT = 10;
 const GENERATED_MAP_NAME = "Generated";
 const GENERATED_DEFAULT_SEED = "12345";
 const GENERATED_DEFAULT_WALL_THICKNESS = 1;
@@ -56,6 +57,7 @@ const translations = {
       load: "Загрузить",
       rulesButton: "Правила и инструкции",
       lastAction: "Последние действия",
+      aiSpeedLabel: "Скорость хода AI",
       turnPanel: "Панель хода",
       controlsTitle: "Управление",
       moveTitle: "Движение",
@@ -310,6 +312,7 @@ const translations = {
       load: "Load",
       rulesButton: "Rules & instructions",
       lastAction: "Last action",
+      aiSpeedLabel: "AI turn speed",
       turnPanel: "Turn panel",
       controlsTitle: "Controls",
       moveTitle: "Move",
@@ -559,6 +562,7 @@ const state = {
   language: localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru",
   playerTypeSelections: [],
   aiTurnId: 0,
+  aiActionDelay: DEFAULT_AI_ACTION_DELAY,
   victory: null,
   victoryAchieved: false,
 };
@@ -716,6 +720,8 @@ const elements = {
   wallThickness: document.getElementById("wallThickness"),
   wallThicknessValue: document.getElementById("wallThicknessValue"),
   generatedMapSettings: document.getElementById("generatedMapSettings"),
+  aiSpeed: document.getElementById("aiSpeed"),
+  aiSpeedValue: document.getElementById("aiSpeedValue"),
   rulesModal: document.getElementById("rulesModal"),
   rulesContent: document.getElementById("rulesContent"),
   rulesTitle: document.getElementById("rulesTitle"),
@@ -1321,6 +1327,12 @@ function init() {
   elements.loadGame.addEventListener("click", loadGame);
   elements.endTurn.addEventListener("click", endTurn);
   elements.useMedkit.addEventListener("click", useMedkit);
+  if (elements.aiSpeed) {
+    elements.aiSpeed.addEventListener("input", () => {
+      state.aiActionDelay = getSelectedAiSpeed();
+      updateAiSpeedValue();
+    });
+  }
 
   document.querySelectorAll("[data-lang]").forEach((button) => {
     button.addEventListener("click", () => setLanguage(button.dataset.lang));
@@ -1363,6 +1375,7 @@ function init() {
   buildMapPreviewGrid();
   updateGeneratedSettingsVisibility();
   renderMapPreview();
+  updateAiSpeedControl();
   setLanguage(state.language);
   showStartScreen();
 }
@@ -1453,6 +1466,7 @@ function startNewGame(keepMapSelection = false) {
   state.rng = mulberry32(state.seed);
   state.crateInterval = Math.max(1, Number(elements.crateInterval.value) || 3);
   state.fragLimit = Math.max(1, Number(elements.fragLimit.value) || 10);
+  updateAiSpeedControl();
 
   assignSpawnPoints();
   startTurn();
@@ -1478,6 +1492,7 @@ function showStartScreen() {
   if (elements.fragLimit) {
     elements.fragLimit.value = String(state.fragLimit || 10);
   }
+  updateAiSpeedControl();
   updateGeneratedSettingsVisibility();
   renderMapPreview();
   renderPlayerTypeList();
@@ -1677,7 +1692,7 @@ function waitAiDelay(turnId) {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(isAiTurn(turnId));
-    }, AI_ACTION_DELAY);
+    }, state.aiActionDelay);
   });
 }
 
@@ -3574,7 +3589,7 @@ function shouldCombineHitEntries(current, previous) {
 
 function getLastActionEntries() {
   const entries = [];
-  for (let index = state.log.length - 1; index >= 0 && entries.length < 5; index -= 1) {
+  for (let index = state.log.length - 1; index >= 0 && entries.length < LAST_ACTION_LIMIT; index -= 1) {
     const entry = state.log[index];
     const previous = state.log[index - 1];
     if (shouldCombineHitEntries(entry, previous)) {
@@ -3590,6 +3605,35 @@ function getLastActionEntries() {
     entries.push(entry);
   }
   return entries;
+}
+
+function getSelectedAiSpeed() {
+  if (!elements.aiSpeed) return DEFAULT_AI_ACTION_DELAY;
+  const value = Number(elements.aiSpeed.value);
+  if (Number.isNaN(value) || value <= 0) {
+    return DEFAULT_AI_ACTION_DELAY;
+  }
+  return value;
+}
+
+function formatAiSpeedValue(value) {
+  const seconds = Math.max(0.1, value / 1000);
+  return `${seconds.toFixed(1)}s`;
+}
+
+function updateAiSpeedValue() {
+  if (elements.aiSpeedValue) {
+    elements.aiSpeedValue.textContent = formatAiSpeedValue(state.aiActionDelay);
+  }
+}
+
+function updateAiSpeedControl() {
+  if (!elements.aiSpeed) return;
+  if (!state.aiActionDelay) {
+    state.aiActionDelay = DEFAULT_AI_ACTION_DELAY;
+  }
+  elements.aiSpeed.value = String(state.aiActionDelay);
+  updateAiSpeedValue();
 }
 
 function renderLastAction() {
@@ -3761,6 +3805,9 @@ function loadGame() {
   if (!state.wallThickness) {
     state.wallThickness = GENERATED_DEFAULT_WALL_THICKNESS;
   }
+  if (!state.aiActionDelay) {
+    state.aiActionDelay = DEFAULT_AI_ACTION_DELAY;
+  }
   state.rng = mulberry32(state.seed);
   state.aiTurnId += 1;
   state.victory = null;
@@ -3775,6 +3822,7 @@ function loadGame() {
   elements.mapSelect.value = state.mapName;
   elements.crateInterval.value = state.crateInterval || 3;
   elements.fragLimit.value = state.fragLimit || 10;
+  updateAiSpeedControl();
   elements.playerCount.value = String(state.players.length);
   setLanguage(state.language);
   hideStartScreen();
