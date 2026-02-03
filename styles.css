@@ -1218,9 +1218,45 @@ main {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   color: #e2e8f0;
   font-size: 14px;
+}
+
+.victory-achievement-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #1f2937;
+  background: #0b1220;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+.victory-achievement-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  flex-shrink: 0;
+}
+
+.victory-achievement-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.victory-achievement-title {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  color: #f8fafc;
 }
 
 .victory-achievement-label {
@@ -1228,6 +1264,17 @@ main {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.victory-achievement-winner {
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .victory-achievements-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal__actions {
