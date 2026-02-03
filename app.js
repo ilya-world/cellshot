@@ -227,11 +227,18 @@ const translations = {
       statsDeaths: "Смерти",
       achievementsTitle: "Ачивки",
       achievementsEmpty: "Нет достижений для отображения.",
+      achievementMostDamageTitle: "MEAT GRINDER",
       achievementMostDamage: "Больше всего урона по телу и конечностям",
+      achievementBestAccuracyTitle: "SNIPER",
       achievementBestAccuracy: "Самая высокая точность",
+      achievementMostCratesTitle: "TREASURE HUNTER",
       achievementMostCrates: "Больше всего ящиков открыто",
+      achievementMostHeadshotsTitle: "HEAD COLLECTOR",
       achievementMostHeadshots: "Больше всего попаданий в голову",
-      achievementMostFrags: "Больше всего фрагов",
+      achievementLeastDeathsTitle: "UNTOUCHABLE",
+      achievementLeastDeaths: "Меньше всего смертей",
+      achievementMostStepsTitle: "MARATHONER",
+      achievementMostSteps: "Больше всего пройденных шагов",
       newGame: "Новая игра",
       continue: "Продолжить игру",
     },
@@ -496,11 +503,18 @@ const translations = {
       statsDeaths: "Deaths",
       achievementsTitle: "Achievements",
       achievementsEmpty: "No achievements to show.",
+      achievementMostDamageTitle: "MEAT GRINDER",
       achievementMostDamage: "Most body + limb damage",
+      achievementBestAccuracyTitle: "SNIPER",
       achievementBestAccuracy: "Highest accuracy",
+      achievementMostCratesTitle: "TREASURE HUNTER",
       achievementMostCrates: "Most crates opened",
+      achievementMostHeadshotsTitle: "HEAD COLLECTOR",
       achievementMostHeadshots: "Most headshots",
-      achievementMostFrags: "Most frags",
+      achievementLeastDeathsTitle: "UNTOUCHABLE",
+      achievementLeastDeaths: "Least deaths",
+      achievementMostStepsTitle: "MARATHONER",
+      achievementMostSteps: "Most steps",
       newGame: "New game",
       continue: "Continue game",
     },
@@ -1521,7 +1535,7 @@ function renderVictoryStats() {
 }
 
 function getAchievementWinners(players, scoreFn, options = {}) {
-  const { minScore = null, allowZeroAttempts = true } = options;
+  const { minScore = null, allowZeroAttempts = true, preferHigher = true } = options;
   let bestScore = null;
   const winners = [];
   players.forEach((player) => {
@@ -1529,7 +1543,14 @@ function getAchievementWinners(players, scoreFn, options = {}) {
     if (score === null) return;
     if (!allowZeroAttempts && score === 0) return;
     if (minScore !== null && score < minScore) return;
-    if (bestScore === null || score > bestScore) {
+    if (bestScore === null) {
+      bestScore = score;
+      winners.length = 0;
+      winners.push(player);
+      return;
+    }
+    const isBetter = preferHigher ? score > bestScore : score < bestScore;
+    if (isBetter) {
       bestScore = score;
       winners.length = 0;
       winners.push(player);
@@ -1555,28 +1576,47 @@ function renderVictoryAchievements() {
 
   const achievements = [
     {
+      title: t("victory.achievementMostDamageTitle"),
       label: t("victory.achievementMostDamage"),
+      icon: "🥩",
       result: getAchievementWinners(players, (player) => player.bodyLimbHits),
       valueFormatter: (score) => (score === null ? "—" : String(score)),
     },
     {
+      title: t("victory.achievementBestAccuracyTitle"),
       label: t("victory.achievementBestAccuracy"),
+      icon: "🎯",
       result: accuracyResults,
       valueFormatter: (score) => formatAccuracy(score),
     },
     {
+      title: t("victory.achievementMostCratesTitle"),
       label: t("victory.achievementMostCrates"),
+      icon: "🧰",
       result: getAchievementWinners(players, (player) => player.cratesOpened),
       valueFormatter: (score) => (score === null ? "—" : String(score)),
     },
     {
+      title: t("victory.achievementMostHeadshotsTitle"),
       label: t("victory.achievementMostHeadshots"),
+      icon: "💀",
       result: getAchievementWinners(players, (player) => player.headshots),
       valueFormatter: (score) => (score === null ? "—" : String(score)),
     },
     {
-      label: t("victory.achievementMostFrags"),
-      result: getAchievementWinners(players, (player) => player.frags),
+      title: t("victory.achievementLeastDeathsTitle"),
+      label: t("victory.achievementLeastDeaths"),
+      icon: "🛡️",
+      result: getAchievementWinners(players, (player) => player.deaths, {
+        preferHigher: false,
+      }),
+      valueFormatter: (score) => (score === null ? "—" : String(score)),
+    },
+    {
+      title: t("victory.achievementMostStepsTitle"),
+      label: t("victory.achievementMostSteps"),
+      icon: "👟",
+      result: getAchievementWinners(players, (player) => player.stepsTaken),
       valueFormatter: (score) => (score === null ? "—" : String(score)),
     },
   ];
@@ -1589,9 +1629,13 @@ function renderVictoryAchievements() {
         : "—";
       const value = achievement.valueFormatter(score);
       return `
-        <li>
-          <div class="victory-achievement-label">${achievement.label}</div>
-          <div>${winnerLabel} <span class="muted">(${value})</span></div>
+        <li class="victory-achievement-card">
+          <div class="victory-achievement-icon" aria-hidden="true">${achievement.icon}</div>
+          <div class="victory-achievement-body">
+            <div class="victory-achievement-title">${achievement.title}</div>
+            <div class="victory-achievement-label">${achievement.label}</div>
+            <div class="victory-achievement-winner">${winnerLabel} <span class="muted">(${value})</span></div>
+          </div>
         </li>
       `;
     })
@@ -1804,6 +1848,7 @@ function createPlayers(count, playerTypes = []) {
       headshots: 0,
       bodyLimbHits: 0,
       cratesOpened: 0,
+      stepsTaken: 0,
       inventory: [],
       respawnRound: null,
     };
@@ -1816,6 +1861,7 @@ function ensurePlayerStats(player) {
   player.headshots = player.headshots ?? 0;
   player.bodyLimbHits = player.bodyLimbHits ?? 0;
   player.cratesOpened = player.cratesOpened ?? 0;
+  player.stepsTaken = player.stepsTaken ?? 0;
 }
 
 function assignSpawnPoints() {
@@ -2494,6 +2540,8 @@ function attemptMove(dx, dy) {
   player.x = nextX;
   player.y = nextY;
   state.moves -= 1;
+  ensurePlayerStats(player);
+  player.stepsTaken += 1;
   handleCratePickup(nextX, nextY);
   render();
 }
